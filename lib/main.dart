@@ -1,26 +1,22 @@
 import 'package:flutter/material.dart';
+import 'screens/menu_screen.dart';
 
-import 'screens/game/math_game_screen.dart';
-import 'models/math_mode.dart';
+void main() => runApp(const MathApp());
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-
-  const MyApp({super.key});
+class MathApp extends StatelessWidget {
+  const MathApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: MathGameScreen(
-        mode: MathMode.plus,
+      title: 'さんすうアプリ',
+      theme: ThemeData(
+        primarySwatch: Colors.orange,
+        useMaterial3: true,
+        fontFamily: 'Hiragino Sans',
       ),
+      home: const MenuScreen(),
     );
-
   }
-
 }
