@@ -20,7 +20,8 @@ class _ParentPageState extends State<ParentPage> {
   List<Map<String, dynamic>> history = [];
   Set<String> hiddenModes = {};
   List<String> menuOrder = const [
-    'plus','minus','multi','div','story','puzzle','shopping','compare','fillBoth','tens'
+    'plus','minus','multi','div','story','puzzle','shopping','compare','fillBoth','tens',
+    'clock','shape',
   ];
   Map<String, int> calendarData = {};
 
@@ -499,6 +500,7 @@ class _ParentPageState extends State<ParentPage> {
       'story':    '📖 ぶんしょう',    'puzzle':   '🧩 パズル',
       'shopping': '💴 おかいもの',    'compare':  '🔢 かずの おおきさ',
       'fillBoth': '🧮 むしくいざん',  'tens':     '🔟 10の まとまり',
+      'clock':    '🕐 とけい',        'shape':    '🔷 ずけい',
     };
 
     return Card(

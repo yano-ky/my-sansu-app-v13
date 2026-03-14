@@ -46,6 +46,8 @@ const List<BadgeDef> kAllBadges = [
   BadgeDef(id: 'mode_multi',    emoji: '✖️', title: 'かけざん はかせ',   desc: 'かけざんで せいかいりつ80%いじょう'),
   BadgeDef(id: 'mode_div',      emoji: '➗', title: 'わりざん はかせ',   desc: 'わりざんで せいかいりつ80%いじょう'),
   BadgeDef(id: 'mode_shopping', emoji: '💴', title: 'かいものじょうず',  desc: 'おかいもので せいかいりつ80%いじょう'),
+  BadgeDef(id: 'mode_clock',    emoji: '🕐', title: 'とけい はかせ',     desc: 'とけいで せいかいりつ80%いじょう'),
+  BadgeDef(id: 'mode_shape',    emoji: '🔷', title: 'ずけい はかせ',     desc: 'ずけいで せいかいりつ80%いじょう'),
   BadgeDef(id: 'all_modes',     emoji: '🌈', title: 'ぜんぶ はかせ',    desc: 'ぜんモードで せいかいりつ80%いじょう'),
 
   // タイムアタック系
@@ -116,6 +118,8 @@ class BadgeManager {
       'mode_multi':    MathMode.multi,
       'mode_div':      MathMode.div,
       'mode_shopping': MathMode.shopping,
+      'mode_clock':    MathMode.clock,
+      'mode_shape':    MathMode.shape,
     };
     bool allMaster = true;
     for (final e in modeMap.entries) {
@@ -194,6 +198,8 @@ class AdviceManager {
       MathMode.fillBoth:   'こたえから ぎゃくに かんがえてみよう！',
       MathMode.puzzle:     'いろんな かずを ためして みよう！',
       MathMode.tens:       '10のまとまりが いくつか かぞえてみよう！',
+      MathMode.clock:      'みじかいはりが「じ」、ながいはりが「ふん」だよ！',
+      MathMode.shape:      'かどの かずを かぞえてみよう！',
       MathMode.wrong:      'おちついて もう いちど かんがえてみよう！',
       MathMode.challenge:  'もんだいを ゆっくり よんでみよう！',
     };

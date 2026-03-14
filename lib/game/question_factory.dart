@@ -13,6 +13,8 @@ import 'generators/fillboth_generator.dart';
 import 'generators/tens_generator.dart';
 import 'generators/wrong_generator.dart';
 import 'generators/challenge_generator.dart';
+import 'generators/clock_generator.dart';
+import 'generators/shape_generator.dart';
 
 class QuestionFactory {
   /// [mode] に応じたジェネレーターを呼び出して QuestionResult を返す。
@@ -60,6 +62,10 @@ class QuestionFactory {
           idx: challengeIdx,
           r: r,
         );
+      case MathMode.clock:
+        return ClockGenerator.generate(r: r);
+      case MathMode.shape:
+        return ShapeGenerator.generate(r: r);
     }
   }
 }

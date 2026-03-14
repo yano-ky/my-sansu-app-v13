@@ -31,7 +31,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
       _Category('📝 もんだいすう', ['solve_10','solve_50','solve_100','solve_500','solve_1000']),
       _Category('🔥 れんぞくせいかい', ['streak_3','streak_5','streak_10']),
       _Category('📅 まいにち れんしゅう', ['days_3','days_7','days_30']),
-      _Category('🎓 もーど はかせ', ['mode_plus','mode_minus','mode_multi','mode_div','mode_shopping','all_modes']),
+      _Category('🎓 もーど はかせ', ['mode_plus','mode_minus','mode_multi','mode_div','mode_shopping','mode_clock','mode_shape','all_modes']),
       _Category('⚡ タイムアタック', ['time_10','time_20']),
       _Category('💪 にがてこくふく', ['wrong_clear']),
     ];

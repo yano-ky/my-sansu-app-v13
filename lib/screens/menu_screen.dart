@@ -29,6 +29,7 @@ class _MenuScreenState extends State<MenuScreen> {
   static const _defaultOrder = [
     'plus', 'minus', 'multi', 'div',
     'story', 'puzzle', 'shopping', 'compare', 'fillBoth', 'tens',
+    'clock', 'shape',
   ];
   List<String> menuOrder = List.from(_defaultOrder);
 
@@ -198,6 +199,8 @@ class _MenuScreenState extends State<MenuScreen> {
       case 'compare':  return _menuCard('🔢 かずの おおきさ くらべ',  Colors.cyan.shade100,   MathMode.compare);
       case 'fillBoth': return _menuCard('🧮 むしくいざん チャレンジ', Colors.lime.shade200,   null, isFillBothMenu: true);
       case 'tens':     return _menuCard('🔟 10の まとまり',           Colors.teal.shade100,   MathMode.tens);
+      case 'clock':    return _menuCard('🕐 とけい もんだい',          Colors.blue.shade100,   MathMode.clock);
+      case 'shape':    return _menuCard('🔷 ずけい もんだい',          Colors.green.shade100,  MathMode.shape);
       default:         return const SizedBox.shrink();
     }
   }

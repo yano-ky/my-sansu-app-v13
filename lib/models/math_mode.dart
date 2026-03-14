@@ -13,7 +13,9 @@ enum MathMode {
   compare,
   fillBoth,
   challenge,
-  tens;
+  tens,
+  clock,
+  shape;
 
   bool get isPlus  => this == plus  || this == storyPlus;
   bool get isMinus => this == minus || this == storyMinus;
@@ -37,6 +39,8 @@ enum MathMode {
       case MathMode.fillBoth:   return 'むしくいざん';
       case MathMode.challenge:  return 'ちょうせんじょう';
       case MathMode.tens:       return '10の まとまり';
+      case MathMode.clock:      return 'とけい';
+      case MathMode.shape:      return 'ずけい';
     }
   }
 

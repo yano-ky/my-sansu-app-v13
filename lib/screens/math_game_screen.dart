@@ -493,6 +493,8 @@ class _MathGameState extends State<MathGame> {
               else if (curM == MathMode.fillBoth)  _buildFillBothUI()
               else if (curM == MathMode.tens)      _buildTensUI()
               else if (curM == MathMode.challenge) _buildChallengeUI()
+              else if (curM == MathMode.clock)     _buildClockUI()
+              else if (curM == MathMode.shape)     _buildShapeUI()
               else                                 _buildNormalUI(),
               if (curM.isMulti) ...[
                 const SizedBox(height: 10),
@@ -1138,4 +1140,267 @@ class _MathGameState extends State<MathGame> {
       ),
     ),
   );
+
+  // ── 時計UI ───────────────────────────────────────────────────────
+
+  Widget _buildClockUI() => Column(children: [
+    const SizedBox(height: 20),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Card(
+        elevation: 3,
+        color: Colors.blue.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            Text(q.clockQuestion,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            // アナログ時計
+            CustomPaint(
+              size: const Size(180, 180),
+              painter: _ClockPainter(hour: q.clockHour, minute: q.clockMinute),
+            ),
+            const SizedBox(height: 12),
+            // デジタル表示
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Text(
+                '${q.clockHour} : ${q.clockMinute.toString().padLeft(2, '0')}',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    ),
+    const SizedBox(height: 20),
+    // 選択肢
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: q.clockChoices.map((c) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: Colors.blue.shade50,
+                foregroundColor: Colors.black87,
+                side: BorderSide(color: Colors.blue.shade200),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                elevation: 1,
+              ),
+              onPressed: () => _checkAnswer(c == q.clockAnswer),
+              child: Text(c,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        )).toList(),
+      ),
+    ),
+    const SizedBox(height: 16),
+  ]);
+
+  // ── 図形UI ───────────────────────────────────────────────────────
+
+  Widget _buildShapeUI() => Column(children: [
+    const SizedBox(height: 20),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Card(
+        elevation: 3,
+        color: Colors.green.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            Text(q.shapeQuestion,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            CustomPaint(
+              size: const Size(160, 140),
+              painter: _ShapePainter(shapeName: q.shapeName),
+            ),
+          ]),
+        ),
+      ),
+    ),
+    const SizedBox(height: 20),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 2.2,
+        children: q.shapeChoices.map((c) => ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade50,
+            foregroundColor: Colors.black87,
+            side: BorderSide(color: Colors.green.shade300),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+          onPressed: () => _checkAnswer(c == q.shapeAnswer),
+          child: Text(c,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.bold)),
+        )).toList(),
+      ),
+    ),
+    const SizedBox(height: 20),
+  ]);
+}
+
+// ── 時計 CustomPainter ────────────────────────────────────────────────
+class _ClockPainter extends CustomPainter {
+  final int hour, minute;
+  const _ClockPainter({required this.hour, required this.minute});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2, cy = size.height / 2;
+    final r  = size.width / 2 - 8;
+
+    final bg = Paint()..color = Colors.white..style = PaintingStyle.fill;
+    final rim = Paint()..color = const Color(0xFF3A6EA5)..style = PaintingStyle.stroke..strokeWidth = 6;
+    final tick = Paint()..color = Colors.grey.shade400..strokeWidth = 1.5..strokeCap = StrokeCap.round;
+    final bigTick = Paint()..color = Colors.grey.shade600..strokeWidth = 3..strokeCap = StrokeCap.round;
+    final hourHand = Paint()..color = const Color(0xFF3A3A3A)..strokeWidth = 6..strokeCap = StrokeCap.round;
+    final minHand  = Paint()..color = const Color(0xFF3A6EA5)..strokeWidth = 4..strokeCap = StrokeCap.round;
+    final center   = Paint()..color = const Color(0xFF3A3A3A)..style = PaintingStyle.fill;
+
+    // 文字盤
+    canvas.drawCircle(Offset(cx, cy), r, bg);
+    canvas.drawCircle(Offset(cx, cy), r, rim);
+
+    // 目盛り
+    for (int i = 0; i < 60; i++) {
+      final angle = i * 6 * 3.14159 / 180 - 3.14159 / 2;
+      final isHour = i % 5 == 0;
+      final len = isHour ? 10.0 : 5.0;
+      final p = isHour ? bigTick : tick;
+      canvas.drawLine(
+        Offset(cx + (r - len) * cos(angle), cy + (r - len) * sin(angle)),
+        Offset(cx + r * cos(angle),          cy + r * sin(angle)),
+        p,
+      );
+    }
+
+    // 数字（12,3,6,9）
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (final n in [12, 3, 6, 9]) {
+      final angle = (n * 30 - 90) * 3.14159 / 180;
+      final tx = cx + (r - 22) * cos(angle);
+      final ty = cy + (r - 22) * sin(angle);
+      tp.text = TextSpan(
+        text: '$n',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey.shade700,
+        ),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(tx - tp.width / 2, ty - tp.height / 2));
+    }
+
+    // 時針
+    final hAngle = ((hour % 12) + minute / 60) * 30 * 3.14159 / 180 - 3.14159 / 2;
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + r * 0.52 * cos(hAngle), cy + r * 0.52 * sin(hAngle)),
+      hourHand,
+    );
+
+    // 分針
+    final mAngle = minute * 6 * 3.14159 / 180 - 3.14159 / 2;
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + r * 0.78 * cos(mAngle), cy + r * 0.78 * sin(mAngle)),
+      minHand,
+    );
+
+    // 中心点
+    canvas.drawCircle(Offset(cx, cy), 6, center);
+    canvas.drawCircle(Offset(cx, cy), 3, Paint()..color = Colors.white);
+  }
+
+  @override bool shouldRepaint(_ClockPainter old) =>
+      old.hour != hour || old.minute != minute;
+}
+
+// ── 図形 CustomPainter ────────────────────────────────────────────────
+class _ShapePainter extends CustomPainter {
+  final String shapeName;
+  const _ShapePainter({required this.shapeName});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2, cy = size.height / 2;
+    final fill   = Paint()..color = const Color(0xFFB8E6C8)..style = PaintingStyle.fill;
+    final stroke = Paint()
+      ..color = const Color(0xFF2E7D32)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeJoin = StrokeJoin.round;
+
+    switch (shapeName) {
+      case 'triangle':
+        final path = Path()
+          ..moveTo(cx, cy - 55)
+          ..lineTo(cx + 60, cy + 45)
+          ..lineTo(cx - 60, cy + 45)
+          ..close();
+        canvas.drawPath(path, fill);
+        canvas.drawPath(path, stroke);
+      case 'square':
+        final r = Rect.fromCenter(center: Offset(cx, cy), width: 110, height: 110);
+        canvas.drawRect(r, fill);
+        canvas.drawRect(r, stroke);
+      case 'rectangle':
+        final r = Rect.fromCenter(center: Offset(cx, cy), width: 140, height: 90);
+        canvas.drawRect(r, fill);
+        canvas.drawRect(r, stroke);
+      case 'circle':
+        canvas.drawCircle(Offset(cx, cy), 58, fill);
+        canvas.drawCircle(Offset(cx, cy), 58, stroke);
+      case 'pentagon':
+        canvas.drawPath(_polygon(cx, cy, 55, 5, -90), fill);
+        canvas.drawPath(_polygon(cx, cy, 55, 5, -90), stroke);
+      case 'hexagon':
+        canvas.drawPath(_polygon(cx, cy, 58, 6, 0), fill);
+        canvas.drawPath(_polygon(cx, cy, 58, 6, 0), stroke);
+    }
+  }
+
+  Path _polygon(double cx, double cy, double r, int sides, double startDeg) {
+    final path = Path();
+    for (int i = 0; i < sides; i++) {
+      final angle = (startDeg + i * 360 / sides) * 3.14159 / 180;
+      final x = cx + r * cos(angle);
+      final y = cy + r * sin(angle);
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+    return path..close();
+  }
+
+  @override bool shouldRepaint(_ShapePainter old) => old.shapeName != shapeName;
 }

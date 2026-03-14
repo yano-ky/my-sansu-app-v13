@@ -48,6 +48,19 @@ class QuestionResult {
   final bool tensAskTotal;
   final List<int> tensChoices;
 
+  // ── 時計 ──
+  final int clockHour;       // 時
+  final int clockMinute;     // 分（0,5,10,15,30,45…）
+  final String clockQuestion; // 問題文
+  final List<String> clockChoices; // 選択肢文字列
+  final String clockAnswer;  // 正解文字列
+
+  // ── 図形 ──
+  final String shapeName;      // 'triangle'/'square'/'rectangle'/'circle'/'pentagon'/'hexagon'
+  final String shapeQuestion;  // 問題文
+  final List<String> shapeChoices;
+  final String shapeAnswer;
+
   const QuestionResult({
     this.n1 = 0,
     this.n2 = 0,
@@ -77,5 +90,14 @@ class QuestionResult {
     this.tensOnes = 0,
     this.tensAskTotal = true,
     this.tensChoices = const [],
+    this.clockHour = 12,
+    this.clockMinute = 0,
+    this.clockQuestion = '',
+    this.clockChoices = const [],
+    this.clockAnswer = '',
+    this.shapeName = '',
+    this.shapeQuestion = '',
+    this.shapeChoices = const [],
+    this.shapeAnswer = '',
   });
 }
