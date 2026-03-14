@@ -2,21 +2,28 @@ import 'dart:math';
 import '../question_result.dart';
 
 class ClockGenerator {
-  // 分数に応じて「ふん」か「ぷん」を返す
+  // 時計問題で使う分の読み方（5分刻み）
   static String _fun(int m) {
-    // 1,3,4,6,8 → ぷん、それ以外 → ふん（十の位で判定）
-    if (m == 0) return '';
-    final tens = m ~/ 10;
-    final ones = m % 10;
-    // ぷん: 1分,3分,4分,6分,8分 → 一の位が1,3,4,6,8
-    const pun = {1, 3, 4, 6, 8};
-    if (pun.contains(ones) || (tens == 1 && ones == 0)) return 'ぷん';
-    return 'ふん';
+    const map = {
+      0:  '',
+      5:  'ごふん',
+      10: 'じゅっぷん',
+      15: 'じゅうごふん',
+      20: 'にじゅっぷん',
+      25: 'にじゅうごふん',
+      30: 'さんじゅっぷん',
+      35: 'さんじゅうごふん',
+      40: 'よんじゅっぷん',
+      45: 'よんじゅうごふん',
+      50: 'ごじゅっぷん',
+      55: 'ごじゅうごふん',
+    };
+    return map[m] ?? '$m ふん';
   }
 
   static String _timeStr(int h, int m) {
     if (m == 0) return '$h じ ちょうど';
-    return '$h じ $m ${_fun(m)}';
+    return '$h じ ${_fun(m)}';
   }
 
   static QuestionResult generate({required Random r}) {

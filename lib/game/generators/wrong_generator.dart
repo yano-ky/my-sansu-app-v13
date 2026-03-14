@@ -49,11 +49,15 @@ class WrongGenerator {
       final hour   = (q['clockHour']   as int?) ?? 12;
       final minute = (q['clockMinute'] as int?) ?? 0;
       String fun(int m) {
-        if (m == 0) return '';
-        const pun = {1, 3, 4, 6, 8};
-        return pun.contains(m % 10) || (m ~/ 10 == 1 && m % 10 == 0) ? 'ぷん' : 'ふん';
+        const map = {
+          0:'', 5:'ごふん', 10:'じゅっぷん', 15:'じゅうごふん',
+          20:'にじゅっぷん', 25:'にじゅうごふん', 30:'さんじゅっぷん',
+          35:'さんじゅうごふん', 40:'よんじゅっぷん', 45:'よんじゅうごふん',
+          50:'ごじゅっぷん', 55:'ごじゅうごふん',
+        };
+        return map[m] ?? '$m ふん';
       }
-      String ts(int h, int m) => m == 0 ? '$h じ ちょうど' : '$h じ $m ${fun(m)}';
+      String ts(int h, int m) => m == 0 ? '$h じ ちょうど' : '$h じ ${fun(m)}';
       final answer = ts(hour, minute);
       final s = <String>{answer};
       for (int h = 1; h <= 12 && s.length < 4; h++) {
