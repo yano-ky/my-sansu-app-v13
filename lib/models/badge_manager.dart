@@ -152,7 +152,7 @@ class BadgeManager {
 
   static Future<int> totalSolved() async {
     final stats = await StatsManager.loadAll();
-    return stats.values.fold(0, (s, m) => s + (m['total'] ?? 0));
+    return stats.values.fold<int>(0, (s, m) => s + (m['total'] ?? 0));
   }
 
   static BadgeDef? defById(String id) {
