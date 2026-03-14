@@ -183,9 +183,17 @@ class _MathGameState extends State<MathGame> {
                    : q.n2;
       final canSave = curM != MathMode.challenge && curM != MathMode.tens;
       if (canSave) {
-        final exists = (curM == MathMode.shopping)
-            ? list.any((e) => e['m'] == curM.name && e['t'] == q.target && e['paid'] == q.shopPaid)
-            : list.any((e) => e['m'] == curM.name && e['n1'] == saveN1 && e['n2'] == saveN2);
+        // clock・shape は専用キーで重複チェック
+        final bool exists;
+        if (curM == MathMode.clock) {
+          exists = list.any((e) => e['m'] == curM.name && e['clockHour'] == q.clockHour && e['clockMinute'] == q.clockMinute);
+        } else if (curM == MathMode.shape) {
+          exists = list.any((e) => e['m'] == curM.name && e['shapeName'] == q.shapeName && e['shapeQuestion'] == q.shapeQuestion);
+        } else if (curM == MathMode.shopping) {
+          exists = list.any((e) => e['m'] == curM.name && e['t'] == q.target && e['paid'] == q.shopPaid);
+        } else {
+          exists = list.any((e) => e['m'] == curM.name && e['n1'] == saveN1 && e['n2'] == saveN2);
+        }
         if (!exists) {
           final entry = <String, dynamic>{
             'm': curM.name, 'n1': saveN1, 'n2': saveN2, 't': q.target,
@@ -201,6 +209,17 @@ class _MathGameState extends State<MathGame> {
             entry['priceB']   = q.shopPriceB;
             entry['itemA']    = q.shopItemA;
             entry['itemB']    = q.shopItemB;
+          }
+          if (curM == MathMode.clock) {
+            entry['clockHour']     = q.clockHour;
+            entry['clockMinute']   = q.clockMinute;
+            entry['clockQuestion'] = q.clockQuestion;
+            entry['clockAnswer']   = q.clockAnswer;
+          }
+          if (curM == MathMode.shape) {
+            entry['shapeName']     = q.shapeName;
+            entry['shapeQuestion'] = q.shapeQuestion;
+            entry['shapeAnswer']   = q.shapeAnswer;
           }
           list.add(entry);
           await prefs.setString('wrongList', json.encode(list));
@@ -313,9 +332,13 @@ class _MathGameState extends State<MathGame> {
       builder: (c) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-        title: Center(child: Text(
-          widget.timeAttack ? '⏱️ タイムアップ！' : '🎊 おわったよ！ 🎊',
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+        title: Center(child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            widget.timeAttack ? '⏱️ タイムアップ！' : '🎊 おわったよ！ 🎊',
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+            maxLines: 1,
+          ),
         )),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [

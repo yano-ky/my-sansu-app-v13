@@ -126,7 +126,11 @@ class _HistoryPageState extends State<HistoryPage> {
                                                   : '${q['itemA'] ?? '?'} + ${q['itemB'] ?? '?'}  ぜんぶで なんえん？')
                                               : qMode == MathMode.compare
                                                   ? '$n1 ？ $n2'
-                                                  : '$n1 $op $n2 ＝ ?',
+                                                  : qMode == MathMode.clock
+                                                      ? '🕐 ${q['clockAnswer'] ?? 'とけい もんだい'}'
+                                                      : qMode == MathMode.shape
+                                                          ? '🔷 ${q['shapeQuestion'] ?? 'ずけい もんだい'}'
+                                                          : '$n1 $op $n2 ＝ ?',
                                           style: TextStyle(
                                             fontSize: qMode == MathMode.shopping ? 13 : 18,
                                             fontWeight: FontWeight.bold,
@@ -139,7 +143,11 @@ class _HistoryPageState extends State<HistoryPage> {
                                         Text(
                                           qMode == MathMode.compare
                                               ? '答え: $n1 ${n1 > n2 ? '＞' : '＜'} $n2'
-                                              : '答え: $t',
+                                              : qMode == MathMode.clock
+                                                  ? '答え: ${q['clockAnswer'] ?? '-'}'
+                                                  : qMode == MathMode.shape
+                                                      ? '答え: ${q['shapeAnswer'] ?? '-'}'
+                                                      : '答え: $t',
                                           style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.green.shade700),

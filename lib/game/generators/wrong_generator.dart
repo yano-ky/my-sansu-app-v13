@@ -44,6 +44,53 @@ class WrongGenerator {
       );
     }
 
+    // 時計
+    if (mode == MathMode.clock) {
+      final hour   = (q['clockHour']   as int?) ?? 12;
+      final minute = (q['clockMinute'] as int?) ?? 0;
+      String fun(int m) {
+        if (m == 0) return '';
+        const pun = {1, 3, 4, 6, 8};
+        return pun.contains(m % 10) || (m ~/ 10 == 1 && m % 10 == 0) ? 'ぷん' : 'ふん';
+      }
+      String ts(int h, int m) => m == 0 ? '$h じ ちょうど' : '$h じ $m ${fun(m)}';
+      final answer = ts(hour, minute);
+      final s = <String>{answer};
+      for (int h = 1; h <= 12 && s.length < 4; h++) {
+        final c = ts(h, minute);
+        if (c != answer) s.add(c);
+      }
+      for (final m in [0, 15, 30, 45]) {
+        if (s.length >= 4) break;
+        final c = ts(hour, m);
+        if (c != answer) s.add(c);
+      }
+      return QuestionResult(
+        target: 0,
+        clockHour: hour, clockMinute: minute,
+        clockQuestion: 'とけいは なんじ なんぷん？',
+        clockChoices: s.toList()..shuffle(r),
+        clockAnswer: answer,
+      );
+    }
+
+    // 図形
+    if (mode == MathMode.shape) {
+      final shapeName = (q['shapeName'] as String?) ?? 'triangle';
+      final question  = (q['shapeQuestion'] as String?) ?? 'この ずけいは なに？';
+      final answer    = (q['shapeAnswer']   as String?) ?? 'さんかくけい';
+      const allNames  = ['さんかくけい','しかくけい','ちょうほうけい','まる（えん）','ごかくけい','ろっかくけい'];
+      final pool = allNames.where((n) => n != answer).toList()..shuffle(r);
+      final choices = [answer, ...pool.take(3)]..shuffle(r);
+      return QuestionResult(
+        target: 0,
+        shapeName: shapeName,
+        shapeQuestion: question,
+        shapeChoices: choices,
+        shapeAnswer: answer,
+      );
+    }
+
     // 数の大小比較
     if (mode == MathMode.compare) {
       final correctSign = n1 > n2 ? '＞' : '＜';
