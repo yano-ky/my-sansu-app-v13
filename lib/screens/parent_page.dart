@@ -12,7 +12,7 @@ class ParentPage extends StatefulWidget {
 
 class _ParentPageState extends State<ParentPage> {
   double maxNum = 10, goal = 10;
-  bool isSelect = true, timeAttack = false;
+  bool isSelect = true, timeAttack = false, showCharacter = true;
   Map<MathMode, Map<String, int>> stats = {};
   List<dynamic> wrongList = [];
   List<Map<String, dynamic>> history = [];
@@ -37,8 +37,9 @@ class _ParentPageState extends State<ParentPage> {
     setState(() {
       maxNum       = prefs.getDouble('maxNum')   ?? 10;
       goal         = prefs.getDouble('goal')     ?? 10;
-      isSelect     = prefs.getBool('isSelect')   ?? true;
-      timeAttack   = prefs.getBool('timeAttack') ?? false;
+      isSelect      = prefs.getBool('isSelect')      ?? true;
+      timeAttack    = prefs.getBool('timeAttack')    ?? false;
+      showCharacter = prefs.getBool('showCharacter') ?? true;
       stats        = s;
       wrongList    = wl;
       history      = hist;
@@ -57,6 +58,7 @@ class _ParentPageState extends State<ParentPage> {
     await prefs.setDouble('goal', goal);
     await prefs.setBool('isSelect', isSelect);
     await prefs.setBool('timeAttack', timeAttack);
+    await prefs.setBool('showCharacter', showCharacter);
     await prefs.setStringList('hiddenModes', hiddenModes.toList());
     await prefs.setStringList('menuOrder', menuOrder);
   }
@@ -466,6 +468,16 @@ class _ParentPageState extends State<ParentPage> {
                   style: const TextStyle(fontSize: 11)),
               value: timeAttack,
               onChanged: (v) { setS(() => timeAttack = v); setState(() {}); _save(); },
+            ),
+            const Divider(),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('🐰 うさぎキャラクター',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              subtitle: Text(showCharacter ? 'ゲーム中にキャラクターを表示' : 'キャラクターを非表示',
+                  style: const TextStyle(fontSize: 11)),
+              value: showCharacter,
+              onChanged: (v) { setS(() => showCharacter = v); setState(() {}); _save(); },
             ),
             const Divider(),
             SwitchListTile(

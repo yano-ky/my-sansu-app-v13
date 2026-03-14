@@ -7,6 +7,7 @@ import '../models/managers.dart';
 import '../game/question_factory.dart';
 import '../game/question_result.dart';
 import '../widgets/hint_area.dart';
+import '../widgets/character_widget.dart';
 
 class MathGame extends StatefulWidget {
   final MathMode mode;
@@ -44,6 +45,8 @@ class _MathGameState extends State<MathGame> {
   int correctCount = 0, wrongCount = 0;
   int streak = 0;
   List<dynamic> wList = [];
+  bool _showCharacter = true;
+  CharState _charState = CharState.normal;
 
   // 挑戦状
   List<Map<String, dynamic>> _challengeList = [];
@@ -66,12 +69,19 @@ class _MathGameState extends State<MathGame> {
   void initState() {
     super.initState();
     curM = widget.mode;
-    if (curM == MathMode.wrong)     _loadWrongList();
+    _loadCharacterSetting();
+    if (curM == MathMode.wrong)          _loadWrongList();
     else if (curM == MathMode.challenge) _loadChallengeList();
     else {
       _generateQuestion();
       if (widget.timeAttack) _startTimer();
     }
+  }
+
+  Future<void> _loadCharacterSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _showCharacter = prefs.getBool('showCharacter') ?? true);
   }
 
   // ── データロード ──────────────────────────────────────────────────
@@ -121,6 +131,7 @@ class _MathGameState extends State<MathGame> {
     showTable = false;
     hintLevel = 0;
     _ansCtrl.clear();
+    if (mounted) setState(() => _charState = CharState.normal);
 
     // パズルのスロットリセット
     if (curM == MathMode.puzzle) {
@@ -146,8 +157,8 @@ class _MathGameState extends State<MathGame> {
     await StatsManager.record(curM, ok);
     await CalendarManager.recordQuestion();
 
-    if (ok) { correctCount++; streak++; }
-    else    { wrongCount++;   streak = 0; }
+    if (ok) { correctCount++; streak++; setState(() => _charState = CharState.correct); }
+    else    { wrongCount++;   streak = 0; setState(() => _charState = CharState.wrong); }
 
     final prefs = await SharedPreferences.getInstance();
     List<dynamic> list = [];
@@ -379,6 +390,14 @@ class _MathGameState extends State<MathGame> {
               style: const TextStyle(
                   fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
         ),
+        actions: _showCharacter
+            ? [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: CharacterWidget(state: _charState, size: 48),
+                )
+              ]
+            : null,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(6),
           child: LinearProgressIndicator(
