@@ -8,6 +8,7 @@ import '../game/question_factory.dart';
 import '../game/question_result.dart';
 import '../widgets/hint_area.dart';
 import '../widgets/character_widget.dart';
+import '../models/badge_manager.dart';
 
 class MathGame extends StatefulWidget {
   final MathMode mode;
@@ -47,6 +48,7 @@ class _MathGameState extends State<MathGame> {
   List<dynamic> wList = [];
   bool _showCharacter = true;
   CharState _charState = CharState.normal;
+  String _wrongAdvice = '';
 
   // 挑戦状
   List<Map<String, dynamic>> _challengeList = [];
@@ -157,8 +159,8 @@ class _MathGameState extends State<MathGame> {
     await StatsManager.record(curM, ok);
     await CalendarManager.recordQuestion();
 
-    if (ok) { correctCount++; streak++; setState(() => _charState = CharState.correct); }
-    else    { wrongCount++;   streak = 0; setState(() => _charState = CharState.wrong); }
+    if (ok) { correctCount++; streak++; setState(() { _charState = CharState.correct; _wrongAdvice = ''; }); }
+    else    { wrongCount++;   streak = 0; setState(() { _charState = CharState.wrong; _wrongAdvice = AdviceManager.wrongAdvice(curM); }); }
 
     final prefs = await SharedPreferences.getInstance();
     List<dynamic> list = [];
@@ -243,7 +245,15 @@ class _MathGameState extends State<MathGame> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))
-              : null,
+              : !ok && _wrongAdvice.isNotEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text('🐰 $_wrongAdvice',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14, height: 1.5)),
+                    )
+                  : null,
           actions: ok
               ? null
               : [Center(child: TextButton(
@@ -270,16 +280,33 @@ class _MathGameState extends State<MathGame> {
     }
   }
 
-  void _finishGame() {
+  void _finishGame() async {
     _stopTimer();
-    final total = correctCount + wrongCount;
-    final pct   = total == 0 ? 0 : (correctCount * 100 / total).round();
-    String comment, medal;
-    if (pct == 100)     { comment = 'かんぺき！ すごすぎる！';   medal = '🥇'; }
-    else if (pct >= 80) { comment = 'すばらしい！ よくできたね！'; medal = '🥈'; }
-    else if (pct >= 50) { comment = 'よくがんばったね！';         medal = '🥉'; }
-    else                { comment = 'つぎは もっと できるよ！';   medal = '⭐'; }
+    final total    = correctCount + wrongCount;
+    final pct      = total == 0 ? 0 : (correctCount * 100 / total).round();
+    final isPerfect = pct == 100 && total > 0;
+    final advice   = AdviceManager.resultAdvice(pct, streak);
+    String medal;
+    if (pct == 100)     medal = '🥇';
+    else if (pct >= 80) medal = '🥈';
+    else if (pct >= 50) medal = '🥉';
+    else                medal = '⭐';
 
+    // バッジ判定
+    final stats        = await StatsManager.loadAll();
+    final solved       = await BadgeManager.totalSolved();
+    final wrongCleared = widget.mode == MathMode.wrong && wList.isEmpty;
+    final newBadges    = await BadgeManager.checkAndGrant(
+      totalSolved:      solved,
+      streak:           streak,
+      isPerfect:        isPerfect,
+      isTimeAttack:     widget.timeAttack,
+      timeAttackScore:  widget.timeAttack ? correctCount : 0,
+      wrongListCleared: wrongCleared,
+      stats:            stats,
+    );
+
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -290,23 +317,35 @@ class _MathGameState extends State<MathGame> {
           widget.timeAttack ? '⏱️ タイムアップ！' : '🎊 おわったよ！ 🎊',
           style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
         )),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(medal, style: const TextStyle(fontSize: 64)),
           const SizedBox(height: 8),
-          Text(comment,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
-          if (widget.timeAttack)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('30びょうで $correctCount もん せいかい！',
-                  style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.orange.shade700,
-                      fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center),
+          // キャラアドバイス
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade200),
             ),
-          const SizedBox(height: 20),
+            child: Row(children: [
+              const Text('🐰', style: TextStyle(fontSize: 24)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(advice,
+                  style: const TextStyle(fontSize: 14, height: 1.5))),
+            ]),
+          ),
+          if (widget.timeAttack) ...[
+            const SizedBox(height: 10),
+            Text('30びょうで $correctCount もん せいかい！',
+                style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.orange.shade700,
+                    fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
+          ],
+          const SizedBox(height: 16),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
@@ -328,8 +367,43 @@ class _MathGameState extends State<MathGame> {
               _resultItem('📊 せいかいりつ', pct, Colors.blue, suffix: '%'),
             ]),
           ),
+          // 新バッジ獲得
+          if (newBadges.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Column(children: [
+                const Text('🏅 あたらしい バッジ！',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.brown)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8, runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: newBadges.map((id) {
+                    final b = BadgeManager.defById(id);
+                    if (b == null) return const SizedBox.shrink();
+                    return Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text(b.emoji, style: const TextStyle(fontSize: 28)),
+                      Text(b.title,
+                          style: const TextStyle(
+                              fontSize: 10, fontWeight: FontWeight.bold)),
+                    ]);
+                  }).toList(),
+                ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 20),
-        ]),
+        ])),
         actions: [
           Center(child: ElevatedButton(
             style: ElevatedButton.styleFrom(
