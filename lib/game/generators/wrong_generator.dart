@@ -11,9 +11,9 @@ class WrongGenerator {
 
     final q    = wrongList[0];
     final mode = MathMode.fromString(q['m'] as String);
-    final n1   = q['n1'] as int;
-    final n2   = q['n2'] as int;
-    final t    = q['t']  as int;
+    final n1   = (q['n1'] as int?) ?? 0;
+    final n2   = (q['n2'] as int?) ?? 0;
+    final t    = (q['t']  as int?) ?? 0;
 
     // おかいもの
     if (mode == MathMode.shopping) {
