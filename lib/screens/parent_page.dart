@@ -86,27 +86,14 @@ class _ParentPageState extends State<ParentPage> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                _sectionTitle('📅 がくしゅう カレンダー'),
-                _buildCalendar(),
-                const SizedBox(height: 20),
-                _sectionTitle('📊 週間 レポート'),
-                _buildWeeklyReport(),
-                const SizedBox(height: 20),
-                _sectionTitle('📊 正解率 グラフ'),
-                _buildStatsChart(),
-                const SizedBox(height: 20),
-                _sectionTitle('📋 間違い 履歴'),
-                _buildWeakList(),
-                const SizedBox(height: 20),
-                _sectionTitle('👁️ メニューの 表示・ならびかえ'),
-                _buildVisibilitySettings(),
-                const SizedBox(height: 20),
-                _sectionTitle('📝 ちょうせんじょう を つくる'),
-                _buildChallengeEditor(),
-                const SizedBox(height: 20),
-                _sectionTitle('⚙️ 問題 設定'),
-                _buildSettings(),
-                const SizedBox(height: 20),
+                _ParentSection(title: '📅 がくしゅう カレンダー',    child: _buildCalendar()),
+                _ParentSection(title: '📊 週間 レポート',             child: _buildWeeklyReport()),
+                _ParentSection(title: '📊 正解率 グラフ',             child: _buildStatsChart()),
+                _ParentSection(title: '📋 間違い 履歴',               child: _buildWeakList()),
+                _ParentSection(title: '👁️ メニューの 表示・ならびかえ', child: _buildVisibilitySettings()),
+                _ParentSection(title: '📝 ちょうせんじょう を つくる', child: _buildChallengeEditor()),
+                _ParentSection(title: '⚙️ 問題 設定',                 child: _buildSettings()),
+                const SizedBox(height: 8),
                 _buildResetButton(),
               ],
             ),
@@ -115,13 +102,6 @@ class _ParentPageState extends State<ParentPage> {
       ),
     );
   }
-
-  Widget _sectionTitle(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(text,
-        style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-  );
 
   // ── 週間レポート ──────────────────────────────────────────────────
 
@@ -383,4 +363,54 @@ class _ParentPageState extends State<ParentPage> {
       }
     },
   );
+}
+
+// ── 保護者メニュー用フリップダウンセクション ─────────────────────────
+
+class _ParentSection extends StatefulWidget {
+  final String title;
+  final Widget child;
+  const _ParentSection({required this.title, required this.child});
+
+  @override
+  State<_ParentSection> createState() => _ParentSectionState();
+}
+
+class _ParentSectionState extends State<_ParentSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(children: [
+        // ヘッダー
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(children: [
+              Expanded(
+                child: Text(widget.title,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueGrey)),
+              ),
+              Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                  color: Colors.blueGrey),
+            ]),
+          ),
+        ),
+        // 展開時コンテンツ
+        if (_expanded)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: widget.child,
+          ),
+      ]),
+    );
+  }
 }
