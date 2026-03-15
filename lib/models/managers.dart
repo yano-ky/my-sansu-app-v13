@@ -45,7 +45,10 @@ class StatsManager {
 class HistoryManager {
   static const _key = 'wrongHistory';
 
-  static Future<void> recordWrong(MathMode mode, int n1, int n2, int target) async {
+  static Future<void> recordWrong(
+    MathMode mode, int n1, int n2, int target, {
+    Map<String, dynamic>? extraData,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     List<dynamic> history = [];
     try { history = json.decode(prefs.getString(_key) ?? '[]'); } catch (_) {}
@@ -53,8 +56,12 @@ class HistoryManager {
         q['m'] == mode.name && q['n1'] == n1 && q['n2'] == n2);
     if (idx >= 0) {
       history[idx]['miss'] = ((history[idx]['miss'] as int?) ?? 1) + 1;
+      // 追加情報も更新
+      if (extraData != null) history[idx].addAll(extraData);
     } else {
-      history.add({'m': mode.name, 'n1': n1, 'n2': n2, 't': target, 'miss': 1});
+      final entry = <String, dynamic>{'m': mode.name, 'n1': n1, 'n2': n2, 't': target, 'miss': 1};
+      if (extraData != null) entry.addAll(extraData);
+      history.add(entry);
     }
     await prefs.setString(_key, json.encode(history));
   }
