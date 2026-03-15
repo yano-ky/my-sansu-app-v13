@@ -100,7 +100,7 @@ class GameController extends ChangeNotifier {
 
   // ── 内部処理 ─────────────────────────────────────────────────────
 
-  Future<void> _judge(QuestionResult q, bool isCorrect) async {
+  Future<void> _judge(QuestionResult q, bool isCorrect, {String? wrongAnswer}) async {
     total++;
     if (isCorrect) {
       correct++;
@@ -112,7 +112,7 @@ class GameController extends ChangeNotifier {
 
     // 統計・履歴・バッジを記録（復習モードは記録しない）
     if (phase == GamePhase.playing) {
-      await _record(q, isCorrect);
+      await _record(q, isCorrect, wrongAnswer: wrongAnswer);
     }
 
     _next();
@@ -202,13 +202,15 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  Future<void> _record(QuestionResult q, bool isCorrect) async {
+  Future<void> _record(QuestionResult q, bool isCorrect, {String? wrongAnswer}) async {
     await StatsManager.record(mode, isCorrect);
     await CalendarManager.recordQuestion();
     if (!isCorrect) {
+      final extra = _buildExtraData(q);
+      if (wrongAnswer != null) extra['wrongAnswer'] = wrongAnswer;
       await HistoryManager.recordWrong(
         mode, q.n1, q.n2, q.target,
-        extraData: _buildExtraData(q),
+        extraData: extra,
       );
     }
     final totalSolved = await BadgeManager.totalSolved();

@@ -135,6 +135,13 @@ class _HistoryPageState extends State<HistoryPage> {
                                               fontSize: 12,
                                               color: Colors.green.shade700),
                                         ),
+                                        if ((q['wrongAnswer'] as String?) != null)
+                                          Text(
+                                            'あなたの答え: ${q['wrongAnswer']}',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.red.shade400),
+                                          ),
                                       ],
                                     ),
                                   ),
