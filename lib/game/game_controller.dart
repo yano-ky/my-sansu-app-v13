@@ -186,6 +186,17 @@ class GameController extends ChangeNotifier {
           'fillAns':    q.fillAns,
           'fillIsLeft': q.fillIsLeft ? 1 : 0,
         };
+      case MathMode.tens:
+        return {
+          'tensBlocks':   q.tensBlocks,
+          'tensOnes':     q.tensOnes,
+          'tensAskTotal': q.tensAskTotal ? 1 : 0,
+        };
+      case MathMode.storyPlus:
+      case MathMode.storyMinus:
+      case MathMode.storyMulti:
+      case MathMode.storyDiv:
+        return {'story': q.story};
       default:
         return {};
     }

@@ -214,6 +214,20 @@ class _HistoryPageState extends State<HistoryPage> {
           _    => 0,
         };
         return '$left $fOp $right ＝ $result';
+      case MathMode.tens:
+        final blocks = q['tensBlocks'] as int? ?? 0;
+        final ones   = q['tensOnes']   as int? ?? 0;
+        final askTotal = (q['tensAskTotal'] as int?) != 0;
+        return askTotal
+            ? '10のまとまり ${blocks}こ・ばら ${ones}こ → ぜんぶで？'
+            : '${blocks * 10 + ones} は 10のまとまりが なんこ？';
+      case MathMode.storyPlus:
+      case MathMode.storyMinus:
+      case MathMode.storyMulti:
+      case MathMode.storyDiv:
+        final story = q['story'] as String?;
+        if (story != null && story.isNotEmpty) return story;
+        return '$n1 $op $n2 ＝ ?';
       default:
         return '$n1 $op $n2 ＝ ?';
     }
@@ -232,6 +246,8 @@ class _HistoryPageState extends State<HistoryPage> {
         final fA    = q['fillA'] as int? ?? n1;
         final fB    = q['fillB'] as int? ?? n2;
         return '答え: □ ＝ ${fLeft ? fA : fB}';
+      case MathMode.tens:
+        return '答え: $t';
       default:
         return '答え: $t';
     }
