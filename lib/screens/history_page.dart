@@ -120,17 +120,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          qMode == MathMode.shopping
-                                              ? ((q['isChange'] as int?) == 1
-                                                  ? '${q['itemA'] ?? '?'} + ${q['itemB'] ?? '?'}  ${q['paid'] ?? '?'}えんだして おつり？'
-                                                  : '${q['itemA'] ?? '?'} + ${q['itemB'] ?? '?'}  ぜんぶで なんえん？')
-                                              : qMode == MathMode.compare
-                                                  ? '$n1 ？ $n2'
-                                                  : qMode == MathMode.clock
-                                                      ? '🕐 ${q['clockAnswer'] ?? 'とけい もんだい'}'
-                                                      : qMode == MathMode.shape
-                                                          ? '🔷 ${q['shapeQuestion'] ?? 'ずけい もんだい'}'
-                                                          : '$n1 $op $n2 ＝ ?',
+                                          _questionText(q, qMode, n1, n2, op),
                                           style: TextStyle(
                                             fontSize: qMode == MathMode.shopping ? 13 : 18,
                                             fontWeight: FontWeight.bold,
@@ -141,13 +131,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          qMode == MathMode.compare
-                                              ? '答え: $n1 ${n1 > n2 ? '＞' : '＜'} $n2'
-                                              : qMode == MathMode.clock
-                                                  ? '答え: ${q['clockAnswer'] ?? '-'}'
-                                                  : qMode == MathMode.shape
-                                                      ? '答え: ${q['shapeAnswer'] ?? '-'}'
-                                                      : '答え: $t',
+                                          _answerText(q, qMode, n1, n2, t),
                                           style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.green.shade700),
@@ -198,6 +182,60 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ),
     );
+  }
+
+  String _questionText(Map<String, dynamic> q, MathMode mode, int n1, int n2, String op) {
+    switch (mode) {
+      case MathMode.clock:
+        final cq = q['clockQuestion'] as String? ?? 'とけいもんだい';
+        final ch = q['clockHour']   as int? ?? 0;
+        final cm = q['clockMinute'] as int? ?? 0;
+        final mStr = cm == 0 ? 'ちょうど' : '$cm ふん';
+        return '🕐 $cq  ($ch じ $mStr)';
+      case MathMode.shape:
+        return '🔷 ${q['shapeQuestion'] ?? 'ずけいもんだい'}';
+      case MathMode.shopping:
+        return (q['isChange'] as int?) == 1
+            ? '${q['itemA'] ?? '?'} ＋ ${q['itemB'] ?? '?'}  ${q['paid'] ?? '?'}えんだして おつり？'
+            : '${q['itemA'] ?? '?'} ＋ ${q['itemB'] ?? '?'}  ぜんぶで なんえん？';
+      case MathMode.compare:
+        return '$n1 ？ $n2';
+      case MathMode.fillBoth:
+        final fOp  = q['fillOp']     as String? ?? '＋';
+        final fA   = q['fillA']      as int?    ?? n1;
+        final fB   = q['fillB']      as int?    ?? n2;
+        final fLeft = (q['fillIsLeft'] as int?)  != 0;
+        final left  = fLeft  ? '□' : '$fA';
+        final right = !fLeft ? '□' : '$fB';
+        final result = switch (fOp) {
+          '＋' => fA + fB,
+          '－' => fA - fB,
+          '×'  => fA * fB,
+          '÷'  => fB != 0 ? fA ~/ fB : 0,
+          _    => 0,
+        };
+        return '$left $fOp $right ＝ $result';
+      default:
+        return '$n1 $op $n2 ＝ ?';
+    }
+  }
+
+  String _answerText(Map<String, dynamic> q, MathMode mode, int n1, int n2, int t) {
+    switch (mode) {
+      case MathMode.clock:
+        return '答え: ${q['clockAnswer'] ?? '-'}';
+      case MathMode.shape:
+        return '答え: ${q['shapeAnswer'] ?? '-'}';
+      case MathMode.compare:
+        return '答え: $n1 ${n1 > n2 ? '＞' : '＜'} $n2';
+      case MathMode.fillBoth:
+        final fLeft = (q['fillIsLeft'] as int?) != 0;
+        final fA    = q['fillA'] as int? ?? n1;
+        final fB    = q['fillB'] as int? ?? n2;
+        return '答え: □ ＝ ${fLeft ? fA : fB}';
+      default:
+        return '答え: $t';
+    }
   }
 
   Widget _legend(Color bg, Color border, String label) => Container(

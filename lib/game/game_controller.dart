@@ -148,11 +148,57 @@ class GameController extends ChangeNotifier {
     );
   }
 
+  /// モードごとの詳細情報をまとめる（履歴表示用）
+  Map<String, dynamic> _buildExtraData(QuestionResult q) {
+    switch (mode) {
+      case MathMode.clock:
+        return {
+          'clockHour':     q.clockHour,
+          'clockMinute':   q.clockMinute,
+          'clockQuestion': q.clockQuestion,
+          'clockAnswer':   q.clockAnswer,
+        };
+      case MathMode.shape:
+        return {
+          'shapeName':     q.shapeName,
+          'shapeQuestion': q.shapeQuestion,
+          'shapeAnswer':   q.shapeAnswer,
+        };
+      case MathMode.shopping:
+        return {
+          'itemA':    q.shopItemA,
+          'itemB':    q.shopItemB,
+          'priceA':   q.shopPriceA,
+          'priceB':   q.shopPriceB,
+          'paid':     q.shopPaid,
+          'isChange': q.shopIsChange ? 1 : 0,
+        };
+      case MathMode.compare:
+        return {
+          'cmpA': q.cmpA,
+          'cmpB': q.cmpB,
+        };
+      case MathMode.fillBoth:
+        return {
+          'fillOp':     q.fillOp,
+          'fillA':      q.fillA,
+          'fillB':      q.fillB,
+          'fillAns':    q.fillAns,
+          'fillIsLeft': q.fillIsLeft ? 1 : 0,
+        };
+      default:
+        return {};
+    }
+  }
+
   Future<void> _record(QuestionResult q, bool isCorrect) async {
     await StatsManager.record(mode, isCorrect);
     await CalendarManager.recordQuestion();
     if (!isCorrect) {
-      await HistoryManager.recordWrong(mode, q.n1, q.n2, q.target);
+      await HistoryManager.recordWrong(
+        mode, q.n1, q.n2, q.target,
+        extraData: _buildExtraData(q),
+      );
     }
     final totalSolved = await BadgeManager.totalSolved();
     final stats = await StatsManager.loadAll();
