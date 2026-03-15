@@ -124,9 +124,9 @@ class GameController extends ChangeNotifier {
       if (_review.isNotEmpty) {
         question = _review.removeAt(0);
       } else {
-        // 復習おわり → 通常モードへ
-        phase = GamePhase.playing;
-        _checkGoal();
+        // 復習おわり → ゲーム終了
+        phase = GamePhase.finished;
+        question = null;
       }
       return;
     }

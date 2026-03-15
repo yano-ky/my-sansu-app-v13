@@ -52,17 +52,14 @@ class HistoryManager {
     final prefs = await SharedPreferences.getInstance();
     List<dynamic> history = [];
     try { history = json.decode(prefs.getString(_key) ?? '[]'); } catch (_) {}
-    final idx = history.indexWhere((q) =>
-        q['m'] == mode.name && q['n1'] == n1 && q['n2'] == n2);
-    if (idx >= 0) {
-      history[idx]['miss'] = ((history[idx]['miss'] as int?) ?? 1) + 1;
-      // 追加情報も更新
-      if (extraData != null) history[idx].addAll(extraData);
-    } else {
-      final entry = <String, dynamic>{'m': mode.name, 'n1': n1, 'n2': n2, 't': target, 'miss': 1};
-      if (extraData != null) entry.addAll(extraData);
-      history.add(entry);
-    }
+    // 1問ずつ別レコードとして追加（親が何を間違えたか1問ずつ把握できるように）
+    final entry = <String, dynamic>{
+      'm': mode.name, 'n1': n1, 'n2': n2, 't': target,
+      'miss': 1,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+    if (extraData != null) entry.addAll(extraData);
+    history.add(entry);
     await prefs.setString(_key, json.encode(history));
   }
 
@@ -82,6 +79,18 @@ class HistoryManager {
     try { history = json.decode(prefs.getString(_key) ?? '[]'); } catch (_) {}
     final idx = history.indexWhere((q) =>
         q['m'] == mode.name && q['n1'] == n1 && q['n2'] == n2);
+    if (idx >= 0) {
+      history[idx]['dismissed'] = true;
+      await prefs.setString(_key, json.encode(history));
+    }
+  }
+
+  /// timestampで1件だけ確認済みにする（1問ずつ表示方式用）
+  static Future<void> dismissByTimestamp(int timestamp) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<dynamic> history = [];
+    try { history = json.decode(prefs.getString(_key) ?? '[]'); } catch (_) {}
+    final idx = history.indexWhere((q) => (q['timestamp'] as int?) == timestamp);
     if (idx >= 0) {
       history[idx]['dismissed'] = true;
       await prefs.setString(_key, json.encode(history));

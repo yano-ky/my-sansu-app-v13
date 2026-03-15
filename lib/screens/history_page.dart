@@ -14,9 +14,10 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     super.initState();
+    // 新しい間違いが上に来るようにtimestamp降順でソート
     _items = List.from(widget.history)
       ..sort((a, b) =>
-          ((b['miss'] as int?) ?? 1).compareTo((a['miss'] as int?) ?? 1));
+          ((b['timestamp'] as int?) ?? 0).compareTo((a['timestamp'] as int?) ?? 0));
   }
 
   String _opStr(MathMode m) {
@@ -29,8 +30,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _dismiss(Map<String, dynamic> q) async {
-    final mode = MathMode.fromString(q['m'] as String);
-    await HistoryManager.dismiss(mode, q['n1'] as int, q['n2'] as int);
+    await HistoryManager.dismissByTimestamp(q['timestamp'] as int? ?? 0);
     setState(() => _items.remove(q));
   }
 
@@ -71,8 +71,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       ...grouped.entries.map((e) {
                         final mode     = MathMode.fromString(e.key);
                         final problems = e.value;
-                        final modeMiss = problems.fold<int>(
-                            0, (s, q) => s + ((q['miss'] as int?) ?? 1));
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -85,7 +84,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                         fontWeight: FontWeight.bold,
                                         color: Colors.blueGrey)),
                                 const SizedBox(width: 8),
-                                Text('${problems.length}問・$modeMiss回',
+                                Text('${problems.length}問',
                                     style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.blueGrey.shade400)),
