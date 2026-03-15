@@ -38,25 +38,25 @@ class _MathGameState extends State<MathGame> {
   void initState() {
     super.initState();
     _ctrl = GameController(
-      mode:        widget.mode,
-      maxNum:      widget.maxNum,
-      goal:        widget.goal,
-      isSelect:    widget.isSelect,
-      timeAttack:  widget.timeAttack,
-      pLv:         widget.pLv,
-      fillBothLv:  widget.fillBothLv,
+      mode:       widget.mode,
+      maxNum:     widget.maxNum,
+      goal:       widget.goal,
+      isSelect:   widget.isSelect,
+      timeAttack: widget.timeAttack,
+      pLv:        widget.pLv,
+      fillBothLv: widget.fillBothLv,
     );
-    _ctrl.addListener(_onControllerUpdate);
+    _ctrl.addListener(_onUpdate);
   }
 
   @override
   void dispose() {
-    _ctrl.removeListener(_onControllerUpdate);
+    _ctrl.removeListener(_onUpdate);
     _ctrl.dispose();
     super.dispose();
   }
 
-  void _onControllerUpdate() {
+  void _onUpdate() {
     if (!mounted) return;
     // バッジ取得通知
     for (final id in _ctrl.lastNewBadges) {
@@ -70,119 +70,173 @@ class _MathGameState extends State<MathGame> {
       }
     }
     _ctrl.lastNewBadges = [];
+
+    // ゲーム終了ダイアログ
+    if (_ctrl.phase == GamePhase.finished) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showFinishDialog());
+    }
+
     setState(() {});
   }
 
-  // ── 回答ハンドラ ────────────────────────────────────────────────
-  void _answerInt(int v)       => _ctrl.answerInt(v);
-  void _answerString(String v) => _ctrl.answerString(v);
+  // ── ゲーム終了ダイアログ ────────────────────────────────────────
+  void _showFinishDialog() {
+    final correct = _ctrl.correct;
+    final total   = _ctrl.total;
+    final pct     = total == 0 ? 0 : (correct * 100 / total).round();
+    final wrong   = total - correct;
 
-  // ── ビルド ──────────────────────────────────────────────────────
-  @override
-  Widget build(BuildContext context) {
-    // ゲーム終了画面
-    if (_ctrl.phase == GamePhase.finished) {
-      return _buildFinished();
-    }
+    String medal, comment;
+    if (pct == 100)     { medal = '🥇'; comment = 'かんぺき！ すごすぎる！'; }
+    else if (pct >= 80) { medal = '🥈'; comment = 'すばらしい！ よくできたね！'; }
+    else if (pct >= 50) { medal = '🥉'; comment = 'よくがんばったね！'; }
+    else                { medal = '⭐'; comment = 'つぎは もっと できるよ！'; }
 
-    // ローディング
-    if (_ctrl.question == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_ctrl.phase == GamePhase.reviewing
-            ? 'ふくしゅうモード 📝'
-            : 'さんすうゲーム'),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-          child: Column(
-            children: [
-              _buildQuestionArea(_ctrl.question!),
-              const SizedBox(height: 32),
-              _buildChoices(_ctrl.question!),
-              const SizedBox(height: 24),
-              Text('せいかい ${_ctrl.correct} / ${_ctrl.total}',
-                  style: const TextStyle(fontSize: 20)),
-              if (_ctrl.phase == GamePhase.playing &&
-                  _ctrl.missedQuestions.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => setState(() => _ctrl.startReview()),
-                  icon: const Icon(Icons.replay),
-                  label: Text(
-                      'まちがい ${_ctrl.missedQuestions.length}もん ふくしゅうする'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    textStyle: const TextStyle(fontSize: 18),
-                  ),
-                ),
-              ],
-              if (_ctrl.phase == GamePhase.reviewing) ...[
-                const SizedBox(height: 8),
-                Text('のこり ${_ctrl.remaining + 1} もん',
-                    style:
-                        const TextStyle(fontSize: 16, color: Colors.orange)),
-              ],
-            ],
-          ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        title: Center(
+          child: Text('🎊 おわったよ！ 🎊',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         ),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(medal, style: const TextStyle(fontSize: 72)),
+          const SizedBox(height: 8),
+          Text(comment,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Column(children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                _resultItem('✅ せいかい', correct, Colors.green),
+                Container(width: 1, height: 44, color: Colors.orange.shade200),
+                _resultItem('❌ ふせいかい', wrong, Colors.red),
+              ]),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Divider(color: Colors.orange.shade200, height: 1),
+              ),
+              _resultItem('📊 せいかいりつ', pct, Colors.blue, suffix: '%'),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          if (_ctrl.missedQuestions.isNotEmpty)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(c);
+                setState(() => _ctrl.startReview());
+              },
+              icon: const Icon(Icons.replay),
+              label: Text('まちがい ${_ctrl.missedQuestions.length}もん ふくしゅうする'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(fontSize: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+            ),
+          const SizedBox(height: 8),
+        ]),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              onPressed: () { Navigator.pop(c); Navigator.pop(context); },
+              child: const Text('もどる', style: TextStyle(fontSize: 16)),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
 
-  // ── ゲーム終了画面 ───────────────────────────────────────────────
-  Widget _buildFinished() {
-    final pct = _ctrl.total > 0
-        ? (_ctrl.correct / _ctrl.total * 100).round()
-        : 0;
+  Widget _resultItem(String label, int value, Color color, {String suffix = 'もん'}) {
+    return Column(children: [
+      Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      const SizedBox(height: 4),
+      Text('$value$suffix',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+    ]);
+  }
+
+  // ── ビルド ──────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    if (_ctrl.phase == GamePhase.finished || _ctrl.question == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final q        = _ctrl.question!;
+    final progress = (_ctrl.total) / widget.goal;
+    final titleText = _ctrl.phase == GamePhase.reviewing
+        ? '📝 ふくしゅうモード  のこり ${_ctrl.remaining + 1} もん'
+        : 'だい ${_ctrl.total + 1} もん / ${widget.goal} もん';
+
     return Scaffold(
-      appBar: AppBar(title: const Text('ゲームクリア！')),
+      appBar: AppBar(
+        centerTitle: true,
+        backgroundColor: Colors.orange.shade200,
+        title: Text(titleText,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        bottom: _ctrl.phase == GamePhase.playing
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(6),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  backgroundColor: Colors.orange.shade100,
+                  valueColor: AlwaysStoppedAnimation(Colors.orange.shade600),
+                ),
+              )
+            : null,
+      ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(pct == 100 ? '🎉' : pct >= 80 ? '😊' : '💪',
-                style: const TextStyle(fontSize: 80)),
-            const SizedBox(height: 20),
-            Text('せいかい ${_ctrl.correct} / ${_ctrl.total} もん',
-                style: const TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('せいかいりつ $pct%',
-                style: const TextStyle(
-                    fontSize: 22, color: Colors.orange)),
-            const SizedBox(height: 40),
-            if (_ctrl.missedQuestions.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: ElevatedButton.icon(
-                  onPressed: () => setState(() => _ctrl.startReview()),
-                  icon: const Icon(Icons.replay),
-                  label: Text(
-                      'まちがい ${_ctrl.missedQuestions.length}もん ふくしゅうする'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    textStyle: const TextStyle(fontSize: 18),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            child: Column(children: [
+              _buildQuestionArea(q),
+              const SizedBox(height: 24),
+              _buildChoices(q),
+              const SizedBox(height: 16),
+              // 復習ボタン（通常モード中に間違いがあれば表示）
+              if (_ctrl.phase == GamePhase.playing &&
+                  _ctrl.missedQuestions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: () => setState(() => _ctrl.startReview()),
+                    icon: const Icon(Icons.replay),
+                    label: Text(
+                        'まちがい ${_ctrl.missedQuestions.length}もん ふくしゅうする'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      textStyle: const TextStyle(fontSize: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                    ),
                   ),
                 ),
-              ),
-            ElevatedButton.icon(
-              onPressed: () => setState(() => _ctrl.restart()),
-              icon: const Icon(Icons.refresh),
-              label: const Text('もういちどあそぶ'),
-              style: ElevatedButton.styleFrom(
-                textStyle: const TextStyle(fontSize: 20),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 32, vertical: 16),
-              ),
-            ),
-          ],
+            ]),
+          ),
         ),
       ),
     );
@@ -191,29 +245,30 @@ class _MathGameState extends State<MathGame> {
   // ── 問題文エリア ─────────────────────────────────────────────────
   Widget _buildQuestionArea(QuestionResult q) {
     switch (widget.mode) {
+
+      // 時計
       case MathMode.clock:
         return Column(children: [
+          const SizedBox(height: 10),
           _ClockFace(hour: q.clockHour, minute: q.clockMinute),
           const SizedBox(height: 16),
-          Text(q.clockQuestion,
-              style: const TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold)),
+          _questionCard(q.clockQuestion, fontSize: 24),
         ]);
 
+      // 図形
       case MathMode.shape:
         return Column(children: [
+          const SizedBox(height: 10),
           _ShapeFigure(shapeName: q.shapeName),
           const SizedBox(height: 16),
-          Text(q.shapeQuestion,
-              style: const TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold)),
+          _questionCard(q.shapeQuestion, fontSize: 24),
         ]);
 
+      // 数の大小比較
       case MathMode.compare:
-        return Text('${q.cmpA}  ？  ${q.cmpB}',
-            style: const TextStyle(
-                fontSize: 40, fontWeight: FontWeight.bold));
+        return _questionCard('${q.cmpA}  ？  ${q.cmpB}', fontSize: 52);
 
+      // 虫食い算
       case MathMode.fillBoth:
         final left   = q.fillIsLeft  ? '□' : '${q.fillA}';
         final right  = !q.fillIsLeft ? '□' : '${q.fillB}';
@@ -224,104 +279,190 @@ class _MathGameState extends State<MathGame> {
           '÷'  => q.fillB != 0 ? q.fillA ~/ q.fillB : 0,
           _    => 0,
         };
-        return Text('$left ${q.fillOp} $right ＝ $result',
-            style: const TextStyle(
-                fontSize: 36, fontWeight: FontWeight.bold));
+        return _questionCard('$left ${q.fillOp} $right ＝ $result', fontSize: 44);
 
+      // おかいもの
       case MathMode.shopping:
-        final text = q.shopIsChange
-            ? '${q.shopItemA}(${q.shopPriceA}円) と'
-              ' ${q.shopItemB}(${q.shopPriceB}円)\n'
-              '${q.shopPaid}円 だして おつりは？'
-            : '${q.shopItemA}(${q.shopPriceA}円) と'
-              ' ${q.shopItemB}(${q.shopPriceB}円)\n'
-              'ぜんぶで なんえん？';
-        return Text(text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 22, fontWeight: FontWeight.bold));
+        return _buildShoppingCard(q);
 
+      // 10のまとまり
       case MathMode.tens:
         final txt = q.tensAskTotal
-            ? '10のまとまりが ${q.tensBlocks}こ、ばらが ${q.tensOnes}こ\nぜんぶで なんこ？'
-            : '${q.tensBlocks * 10 + q.tensOnes} は 10のまとまりが なんこ？';
-        return Text(txt,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 26, fontWeight: FontWeight.bold));
+            ? '10のまとまりが ${q.tensBlocks}こ\nばらが ${q.tensOnes}こ\nぜんぶで なんこ？'
+            : '${q.tensBlocks * 10 + q.tensOnes} は\n10のまとまりが なんこ？';
+        return _questionCard(txt, fontSize: 28);
 
+      // 通常・文章問題
       default:
-        final text = q.story.isNotEmpty
-            ? q.story
-            : '${q.n1} ${q.op} ${q.n2} ＝ ？';
-        return Text(text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 32, fontWeight: FontWeight.bold));
+        if (q.story.isNotEmpty) {
+          return _questionCard(q.story, fontSize: 22);
+        }
+        return _questionCard('${q.n1} ${q.op} ${q.n2} ＝ ?', fontSize: 55);
     }
+  }
+
+  // カード風問題文
+  Widget _questionCard(String text, {double fontSize = 36}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+          child: Center(
+            child: Text(text,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, height: 1.4)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // おかいものカード
+  Widget _buildShoppingCard(QuestionResult q) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Card(
+        elevation: 4,
+        color: Colors.pink.shade50,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            const Text('🛒 おみせやさん',
+                style: TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 16),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              _shopItem(q.shopItemA, q.shopPriceA),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text('＋',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              ),
+              _shopItem(q.shopItemB, q.shopPriceB),
+            ]),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.pink.shade200),
+              ),
+              child: Text(
+                q.shopIsChange
+                    ? '💰 ${q.shopPaid}えん だしたら\nおつりは なんえん？'
+                    : 'ぜんぶで なんえん？',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold, height: 1.6),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _shopItem(String name, int price) {
+    return Column(children: [
+      Text(name.split(' ').first, style: const TextStyle(fontSize: 28)),
+      const SizedBox(height: 4),
+      Text(name.contains(' ') ? name.split(' ').last : name,
+          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.pink.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text('$price円',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+      ),
+    ]);
   }
 
   // ── 選択肢エリア ─────────────────────────────────────────────────
   Widget _buildChoices(QuestionResult q) {
     switch (widget.mode) {
       case MathMode.clock:
-        return _strButtons(q.clockChoices);
+        return _strGrid(q.clockChoices);
       case MathMode.shape:
-        return _strButtons(q.shapeChoices);
+        return _strGrid(q.shapeChoices);
       case MathMode.compare:
-        return _strButtons(q.cmpChoices);
+        return _strGrid(q.cmpChoices);
       case MathMode.fillBoth:
-        return _intButtons(q.fillChoices);
+        return _intGrid(q.fillChoices);
       case MathMode.tens:
-        return _intButtons(q.tensChoices);
+        return _intGrid(q.tensChoices);
       default:
-        return _intButtons(q.choices);
+        return _intGrid(q.choices);
     }
   }
 
-  Widget _intButtons(List<int> choices) => Column(
-        children: choices
-            .map((c) => Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: ElevatedButton(
-                    onPressed: () => _answerInt(c),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(200, 60),
-                      textStyle: const TextStyle(fontSize: 24),
-                    ),
-                    child: Text('$c'),
-                  ),
-                ))
-            .toList(),
-      );
+  // 2×2グリッドの数字ボタン
+  Widget _intGrid(List<int> choices) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 14,
+      crossAxisSpacing: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      childAspectRatio: 1.9,
+      children: choices.map((c) => ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.deepOrange,
+          elevation: 3,
+          side: BorderSide(color: Colors.orange.shade200, width: 2),
+        ),
+        onPressed: () => _ctrl.answerInt(c),
+        child: Text('$c'),
+      )).toList(),
+    );
+  }
 
-  Widget _strButtons(List<String> choices) => Column(
-        children: choices
-            .map((c) => Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: ElevatedButton(
-                    onPressed: () => _answerString(c),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(200, 60),
-                      textStyle: const TextStyle(fontSize: 22),
-                    ),
-                    child: Text(c),
-                  ),
-                ))
-            .toList(),
-      );
+  // 文字列選択肢（時計・図形・大小）
+  Widget _strGrid(List<String> choices) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 14,
+      crossAxisSpacing: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      childAspectRatio: 2.2,
+      children: choices.map((c) => ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.deepOrange,
+          elevation: 3,
+          side: BorderSide(color: Colors.orange.shade200, width: 2),
+        ),
+        onPressed: () => _ctrl.answerString(c),
+        child: Text(c, textAlign: TextAlign.center),
+      )).toList(),
+    );
+  }
 }
 
 // ── 時計ウィジェット ──────────────────────────────────────────────
 class _ClockFace extends StatelessWidget {
   final int hour, minute;
   const _ClockFace({required this.hour, required this.minute});
-
   @override
   Widget build(BuildContext context) => CustomPaint(
-        size: const Size(180, 180),
-        painter: _ClockPainter(hour: hour, minute: minute),
-      );
+      size: const Size(200, 200),
+      painter: _ClockPainter(hour: hour, minute: minute));
 }
 
 class _ClockPainter extends CustomPainter {
@@ -333,64 +474,73 @@ class _ClockPainter extends CustomPainter {
     final c = Offset(size.width / 2, size.height / 2);
     final r = size.width / 2 - 4;
 
-    canvas.drawCircle(c, r, Paint()..color = Colors.white);
-    canvas.drawCircle(
-        c,
-        r,
+    // 背景
+    canvas.drawCircle(c, r, Paint()..color = Colors.yellow.shade50);
+    canvas.drawCircle(c, r,
         Paint()
-          ..color = Colors.black87
+          ..color = Colors.orange.shade300
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 3);
+          ..strokeWidth = 4);
 
+    // 目盛り
+    for (int i = 0; i < 60; i++) {
+      final a = i * 6 * math.pi / 180;
+      final len = i % 5 == 0 ? 10.0 : 5.0;
+      final w   = i % 5 == 0 ? 2.5  : 1.0;
+      canvas.drawLine(
+        Offset(c.dx + (r - len) * math.cos(a), c.dy + (r - len) * math.sin(a)),
+        Offset(c.dx + r        * math.cos(a), c.dy + r        * math.sin(a)),
+        Paint()..color = Colors.orange.shade400..strokeWidth = w,
+      );
+    }
+
+    // 数字
     final tp = TextPainter(textDirection: TextDirection.ltr);
     for (int i = 1; i <= 12; i++) {
       final a = (i * 30 - 90) * math.pi / 180;
-      final p = Offset(c.dx + (r - 18) * math.cos(a),
-                       c.dy + (r - 18) * math.sin(a));
+      final p = Offset(c.dx + (r - 22) * math.cos(a),
+                       c.dy + (r - 22) * math.sin(a));
       tp.text = TextSpan(
           text: '$i',
-          style: const TextStyle(
-              fontSize: 13,
-              color: Colors.black87,
+          style: TextStyle(
+              fontSize: 15,
+              color: Colors.brown.shade700,
               fontWeight: FontWeight.bold));
       tp.layout();
       tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
     }
 
+    // 短針（時）
     _hand(canvas, c,
         ((hour % 12) + minute / 60.0) * 30 * math.pi / 180 - math.pi / 2,
-        r * 0.5, 5, Colors.black87);
+        r * 0.48, 7, Colors.brown.shade700);
+    // 長針（分）
     _hand(canvas, c,
         minute * 6 * math.pi / 180 - math.pi / 2,
-        r * 0.75, 3, Colors.black54);
-    canvas.drawCircle(c, 5, Paint()..color = Colors.black87);
+        r * 0.70, 4, Colors.brown.shade500);
+    // 中心
+    canvas.drawCircle(c, 7, Paint()..color = Colors.orange.shade400);
+    canvas.drawCircle(c, 3, Paint()..color = Colors.white);
   }
 
   void _hand(Canvas canvas, Offset c, double a, double len, double w, Color col) {
-    canvas.drawLine(
-        c,
+    canvas.drawLine(c,
         Offset(c.dx + len * math.cos(a), c.dy + len * math.sin(a)),
-        Paint()
-          ..color = col
-          ..strokeWidth = w
-          ..strokeCap = StrokeCap.round);
+        Paint()..color = col..strokeWidth = w..strokeCap = StrokeCap.round);
   }
 
   @override
-  bool shouldRepaint(_ClockPainter o) =>
-      o.hour != hour || o.minute != minute;
+  bool shouldRepaint(_ClockPainter o) => o.hour != hour || o.minute != minute;
 }
 
 // ── 図形ウィジェット ──────────────────────────────────────────────
 class _ShapeFigure extends StatelessWidget {
   final String shapeName;
   const _ShapeFigure({required this.shapeName});
-
   @override
   Widget build(BuildContext context) => CustomPaint(
-        size: const Size(140, 140),
-        painter: _ShapePainter(shapeName: shapeName),
-      );
+      size: const Size(160, 160),
+      painter: _ShapePainter(shapeName: shapeName));
 }
 
 class _ShapePainter extends CustomPainter {
@@ -399,46 +549,38 @@ class _ShapePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final fill = Paint()
-      ..color = Colors.blue.shade200
-      ..style = PaintingStyle.fill;
+    final fill = Paint()..color = Colors.lightBlue.shade200..style = PaintingStyle.fill;
     final line = Paint()
-      ..color = Colors.blue.shade700
+      ..color = Colors.blue.shade600
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = 3.5;
 
     final cx = size.width / 2;
     final cy = size.height / 2;
-    final r  = size.width / 2 - 10;
+    final r  = size.width / 2 - 12;
 
     switch (shapeName) {
       case 'circle':
         canvas.drawCircle(Offset(cx, cy), r, fill);
         canvas.drawCircle(Offset(cx, cy), r, line);
       case 'square':
-        final rect = Rect.fromCenter(
-            center: Offset(cx, cy), width: r * 1.8, height: r * 1.8);
-        canvas.drawRect(rect, fill);
-        canvas.drawRect(rect, line);
+        final rect = Rect.fromCenter(center: Offset(cx, cy), width: r * 1.8, height: r * 1.8);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), fill);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), line);
       case 'rectangle':
-        final rect = Rect.fromCenter(
-            center: Offset(cx, cy), width: r * 2.2, height: r * 1.3);
-        canvas.drawRect(rect, fill);
-        canvas.drawRect(rect, line);
+        final rect = Rect.fromCenter(center: Offset(cx, cy), width: r * 2.1, height: r * 1.2);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), fill);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), line);
       case 'triangle':
         final p = Path()
           ..moveTo(cx, cy - r)
-          ..lineTo(cx + r, cy + r)
-          ..lineTo(cx - r, cy + r)
+          ..lineTo(cx + r, cy + r * 0.8)
+          ..lineTo(cx - r, cy + r * 0.8)
           ..close();
         canvas.drawPath(p, fill);
         canvas.drawPath(p, line);
       default:
-        final sides = switch (shapeName) {
-          'pentagon' => 5,
-          'hexagon'  => 6,
-          _          => 4,
-        };
+        final sides = switch (shapeName) { 'pentagon' => 5, 'hexagon' => 6, _ => 4 };
         final p = Path();
         for (int i = 0; i < sides; i++) {
           final a = (i * 360 / sides - 90) * math.pi / 180;
