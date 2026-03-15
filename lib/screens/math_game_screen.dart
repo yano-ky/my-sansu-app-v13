@@ -2,9 +2,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/math_mode.dart';
-import '../game/question_factory.dart';
+import '../models/badge_manager.dart';
+import '../game/game_controller.dart';
 import '../game/question_result.dart';
 
+/// ゲーム画面 — 表示のみ担当。ロジックは GameController に委譲。
 class MathGame extends StatefulWidget {
   final MathMode mode;
   final int maxNum;
@@ -18,11 +20,11 @@ class MathGame extends StatefulWidget {
     super.key,
     required this.mode,
     this.maxNum = 10,
-    this.goal = 10,
-    this.isSelect = true,
-    this.timeAttack = false,
-    this.pLv = 1,
-    this.fillBothLv = 0,
+    this.goal   = 10,
+    this.isSelect    = true,
+    this.timeAttack  = false,
+    this.pLv         = 1,
+    this.fillBothLv  = 0,
   });
 
   @override
@@ -30,442 +32,426 @@ class MathGame extends StatefulWidget {
 }
 
 class _MathGameState extends State<MathGame> {
-  QuestionResult? question;
-  int correct = 0;
-  int total = 0;
-  List<QuestionResult> missedQuestions = [];
-  bool isReviewMode = false;
-  List<QuestionResult> reviewQueue = [];
-  bool isGameOver = false;
+  late GameController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _generateQuestion();
-  }
-
-  void _generateQuestion() {
-    setState(() {
-      if (isReviewMode && reviewQueue.isNotEmpty) {
-        question = reviewQueue.removeAt(0);
-      } else if (isReviewMode && reviewQueue.isEmpty) {
-        isGameOver = true;
-      } else {
-        question = QuestionFactory.generate(
-          mode: widget.mode,
-          maxNum: widget.maxNum,
-          pLv: widget.pLv,
-          fillBothLv: widget.fillBothLv,
-        );
-      }
-    });
-  }
-
-  // 通常問題（int選択肢）の正誤判定
-  void _checkAnswer(int value) {
-    if (question == null) return;
-    total++;
-    if (value == question!.target) {
-      correct++;
-    } else {
-      missedQuestions.add(question!);
-    }
-    _generateQuestion();
-  }
-
-  // 文字列選択肢（時計・図形・数の大小）の正誤判定
-  void _checkStringAnswer(String value) {
-    if (question == null) return;
-    final q = question!;
-    total++;
-    final isCorrect = switch (widget.mode) {
-      MathMode.clock   => value == q.clockAnswer,
-      MathMode.shape   => value == q.shapeAnswer,
-      MathMode.compare => value == q.correctSign,
-      _                => false,
-    };
-    if (isCorrect) {
-      correct++;
-    } else {
-      missedQuestions.add(q);
-    }
-    _generateQuestion();
-  }
-
-  void _startReview() {
-    if (missedQuestions.isEmpty) return;
-    setState(() {
-      isReviewMode = true;
-      reviewQueue = List.from(missedQuestions);
-      missedQuestions.clear();
-      correct = 0;
-      total = 0;
-    });
-    _generateQuestion();
-  }
-
-  void _restartGame() {
-    setState(() {
-      isGameOver = false;
-      isReviewMode = false;
-      missedQuestions.clear();
-      reviewQueue.clear();
-      correct = 0;
-      total = 0;
-    });
-    _generateQuestion();
+    _ctrl = GameController(
+      mode:        widget.mode,
+      maxNum:      widget.maxNum,
+      goal:        widget.goal,
+      isSelect:    widget.isSelect,
+      timeAttack:  widget.timeAttack,
+      pLv:         widget.pLv,
+      fillBothLv:  widget.fillBothLv,
+    );
+    _ctrl.addListener(_onControllerUpdate);
   }
 
   @override
+  void dispose() {
+    _ctrl.removeListener(_onControllerUpdate);
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onControllerUpdate() {
+    if (!mounted) return;
+    // バッジ取得通知
+    for (final id in _ctrl.lastNewBadges) {
+      final def = BadgeManager.defById(id);
+      if (def != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('🎉 バッジかくとく！ ${def.emoji} ${def.title}'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.amber.shade700,
+        ));
+      }
+    }
+    _ctrl.lastNewBadges = [];
+    setState(() {});
+  }
+
+  // ── 回答ハンドラ ────────────────────────────────────────────────
+  void _answerInt(int v)       => _ctrl.answerInt(v);
+  void _answerString(String v) => _ctrl.answerString(v);
+
+  // ── ビルド ──────────────────────────────────────────────────────
+  @override
   Widget build(BuildContext context) {
-    if (isGameOver) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('ふくしゅうかんりょう！')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('🎉', style: TextStyle(fontSize: 80)),
-              const SizedBox(height: 20),
-              const Text('ふくしゅうおわったよ！',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Text('せいかい $correct / $total',
-                  style: const TextStyle(fontSize: 24)),
-              const SizedBox(height: 40),
-              ElevatedButton.icon(
-                onPressed: _restartGame,
-                icon: const Icon(Icons.refresh),
-                label: const Text('もういちどあそぶ'),
-                style: ElevatedButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 20),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 16),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    // ゲーム終了画面
+    if (_ctrl.phase == GamePhase.finished) {
+      return _buildFinished();
     }
 
-    if (question == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+    // ローディング
+    if (_ctrl.question == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isReviewMode ? 'ふくしゅうモード 📝' : 'さんすうゲーム'),
+        title: Text(_ctrl.phase == GamePhase.reviewing
+            ? 'ふくしゅうモード 📝'
+            : 'さんすうゲーム'),
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildQuestionArea(),
-          const SizedBox(height: 40),
-          _buildChoices(),
-          const SizedBox(height: 30),
-          Text('せいかい $correct / $total',
-              style: const TextStyle(fontSize: 20)),
-          if (!isReviewMode && missedQuestions.isNotEmpty) ...[
-            const SizedBox(height: 16),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            children: [
+              _buildQuestionArea(_ctrl.question!),
+              const SizedBox(height: 32),
+              _buildChoices(_ctrl.question!),
+              const SizedBox(height: 24),
+              Text('せいかい ${_ctrl.correct} / ${_ctrl.total}',
+                  style: const TextStyle(fontSize: 20)),
+              if (_ctrl.phase == GamePhase.playing &&
+                  _ctrl.missedQuestions.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => setState(() => _ctrl.startReview()),
+                  icon: const Icon(Icons.replay),
+                  label: Text(
+                      'まちがい ${_ctrl.missedQuestions.length}もん ふくしゅうする'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    textStyle: const TextStyle(fontSize: 18),
+                  ),
+                ),
+              ],
+              if (_ctrl.phase == GamePhase.reviewing) ...[
+                const SizedBox(height: 8),
+                Text('のこり ${_ctrl.remaining + 1} もん',
+                    style:
+                        const TextStyle(fontSize: 16, color: Colors.orange)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── ゲーム終了画面 ───────────────────────────────────────────────
+  Widget _buildFinished() {
+    final pct = _ctrl.total > 0
+        ? (_ctrl.correct / _ctrl.total * 100).round()
+        : 0;
+    return Scaffold(
+      appBar: AppBar(title: const Text('ゲームクリア！')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(pct == 100 ? '🎉' : pct >= 80 ? '😊' : '💪',
+                style: const TextStyle(fontSize: 80)),
+            const SizedBox(height: 20),
+            Text('せいかい ${_ctrl.correct} / ${_ctrl.total} もん',
+                style: const TextStyle(
+                    fontSize: 28, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('せいかいりつ $pct%',
+                style: const TextStyle(
+                    fontSize: 22, color: Colors.orange)),
+            const SizedBox(height: 40),
+            if (_ctrl.missedQuestions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ElevatedButton.icon(
+                  onPressed: () => setState(() => _ctrl.startReview()),
+                  icon: const Icon(Icons.replay),
+                  label: Text(
+                      'まちがい ${_ctrl.missedQuestions.length}もん ふくしゅうする'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    textStyle: const TextStyle(fontSize: 18),
+                  ),
+                ),
+              ),
             ElevatedButton.icon(
-              onPressed: _startReview,
-              icon: const Icon(Icons.replay),
-              label: Text('まちがい ${missedQuestions.length}もん ふくしゅうする'),
+              onPressed: () => setState(() => _ctrl.restart()),
+              icon: const Icon(Icons.refresh),
+              label: const Text('もういちどあそぶ'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                textStyle: const TextStyle(fontSize: 18),
+                textStyle: const TextStyle(fontSize: 20),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 32, vertical: 16),
               ),
             ),
           ],
-          if (isReviewMode) ...[
-            const SizedBox(height: 8),
-            Text('のこり ${reviewQueue.length + 1} もん',
-                style: const TextStyle(fontSize: 16, color: Colors.orange)),
-          ],
-        ],
+        ),
       ),
     );
   }
 
-  // ── 問題文エリア ──────────────────────────────────────────────
-  Widget _buildQuestionArea() {
-    final q = question!;
+  // ── 問題文エリア ─────────────────────────────────────────────────
+  Widget _buildQuestionArea(QuestionResult q) {
+    switch (widget.mode) {
+      case MathMode.clock:
+        return Column(children: [
+          _ClockFace(hour: q.clockHour, minute: q.clockMinute),
+          const SizedBox(height: 16),
+          Text(q.clockQuestion,
+              style: const TextStyle(
+                  fontSize: 24, fontWeight: FontWeight.bold)),
+        ]);
 
-    // 時計
-    if (widget.mode == MathMode.clock) {
-      return Column(children: [
-        _clockFace(q.clockHour, q.clockMinute),
-        const SizedBox(height: 16),
-        Text(q.clockQuestion,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-      ]);
+      case MathMode.shape:
+        return Column(children: [
+          _ShapeFigure(shapeName: q.shapeName),
+          const SizedBox(height: 16),
+          Text(q.shapeQuestion,
+              style: const TextStyle(
+                  fontSize: 24, fontWeight: FontWeight.bold)),
+        ]);
+
+      case MathMode.compare:
+        return Text('${q.cmpA}  ？  ${q.cmpB}',
+            style: const TextStyle(
+                fontSize: 40, fontWeight: FontWeight.bold));
+
+      case MathMode.fillBoth:
+        final left   = q.fillIsLeft  ? '□' : '${q.fillA}';
+        final right  = !q.fillIsLeft ? '□' : '${q.fillB}';
+        final result = switch (q.fillOp) {
+          '＋' => q.fillA + q.fillB,
+          '－' => q.fillA - q.fillB,
+          '×'  => q.fillA * q.fillB,
+          '÷'  => q.fillB != 0 ? q.fillA ~/ q.fillB : 0,
+          _    => 0,
+        };
+        return Text('$left ${q.fillOp} $right ＝ $result',
+            style: const TextStyle(
+                fontSize: 36, fontWeight: FontWeight.bold));
+
+      case MathMode.shopping:
+        final text = q.shopIsChange
+            ? '${q.shopItemA}(${q.shopPriceA}円) と'
+              ' ${q.shopItemB}(${q.shopPriceB}円)\n'
+              '${q.shopPaid}円 だして おつりは？'
+            : '${q.shopItemA}(${q.shopPriceA}円) と'
+              ' ${q.shopItemB}(${q.shopPriceB}円)\n'
+              'ぜんぶで なんえん？';
+        return Text(text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 22, fontWeight: FontWeight.bold));
+
+      case MathMode.tens:
+        final txt = q.tensAskTotal
+            ? '10のまとまりが ${q.tensBlocks}こ、ばらが ${q.tensOnes}こ\nぜんぶで なんこ？'
+            : '${q.tensBlocks * 10 + q.tensOnes} は 10のまとまりが なんこ？';
+        return Text(txt,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 26, fontWeight: FontWeight.bold));
+
+      default:
+        final text = q.story.isNotEmpty
+            ? q.story
+            : '${q.n1} ${q.op} ${q.n2} ＝ ？';
+        return Text(text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 32, fontWeight: FontWeight.bold));
     }
-
-    // 図形
-    if (widget.mode == MathMode.shape) {
-      return Column(children: [
-        _shapeWidget(q.shapeName),
-        const SizedBox(height: 16),
-        Text(q.shapeQuestion,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-      ]);
-    }
-
-    // 数の大小比較
-    if (widget.mode == MathMode.compare) {
-      return Text('${q.cmpA}  ？  ${q.cmpB}',
-          style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold));
-    }
-
-    // 虫食い算
-    // fillIsLeft=true → 左が□（□ op fillB = fillAns の結果）
-    // fillIsLeft=false → 右が□（fillA op □ = fillAns の結果）
-    if (widget.mode == MathMode.fillBoth) {
-      final left  = q.fillIsLeft  ? '□' : '${q.fillA}';
-      final right = !q.fillIsLeft ? '□' : '${q.fillB}';
-      final result = switch (q.fillOp) {
-        '＋' => q.fillA + q.fillB,
-        '－' => q.fillA - q.fillB,
-        '×' => q.fillA * q.fillB,
-        '÷' => q.fillB != 0 ? q.fillA ~/ q.fillB : 0,
-        _    => 0,
-      };
-      final display = '$left ${q.fillOp} $right ＝ $result';
-      return Text(display,
-          style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold));
-    }
-
-    // おかいもの
-    if (widget.mode == MathMode.shopping) {
-      final text = q.shopIsChange
-          ? '${q.shopItemA}(${q.shopPriceA}円) と ${q.shopItemB}(${q.shopPriceB}円)\n${q.shopPaid}円 だして おつりは？'
-          : '${q.shopItemA}(${q.shopPriceA}円) と ${q.shopItemB}(${q.shopPriceB}円)\nぜんぶで なんえん？';
-      return Text(text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold));
-    }
-
-    // 通常・文章問題
-    final displayText = q.story.isNotEmpty
-        ? q.story
-        : '${q.n1} ${q.op} ${q.n2} ＝ ？';
-    return Text(displayText,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold));
   }
 
-  // ── 選択肢エリア ──────────────────────────────────────────────
-  Widget _buildChoices() {
-    final q = question!;
-
-    // 文字列選択肢（時計・図形・数の大小）
-    if (widget.mode == MathMode.clock) {
-      return _stringChoiceButtons(q.clockChoices);
+  // ── 選択肢エリア ─────────────────────────────────────────────────
+  Widget _buildChoices(QuestionResult q) {
+    switch (widget.mode) {
+      case MathMode.clock:
+        return _strButtons(q.clockChoices);
+      case MathMode.shape:
+        return _strButtons(q.shapeChoices);
+      case MathMode.compare:
+        return _strButtons(q.cmpChoices);
+      case MathMode.fillBoth:
+        return _intButtons(q.fillChoices);
+      case MathMode.tens:
+        return _intButtons(q.tensChoices);
+      default:
+        return _intButtons(q.choices);
     }
-    if (widget.mode == MathMode.shape) {
-      return _stringChoiceButtons(q.shapeChoices);
-    }
-    if (widget.mode == MathMode.compare) {
-      return _stringChoiceButtons(q.cmpChoices);
-    }
-
-    // 虫食い算
-    if (widget.mode == MathMode.fillBoth) {
-      return _intChoiceButtons(q.fillChoices);
-    }
-
-    // 10のまとまり
-    if (widget.mode == MathMode.tens) {
-      return _intChoiceButtons(q.tensChoices);
-    }
-
-    // 通常（int選択肢）
-    return _intChoiceButtons(q.choices);
   }
 
-  Widget _intChoiceButtons(List<int> choices) {
-    return Column(
-      children: choices.map((c) => Padding(
-        padding: const EdgeInsets.all(8),
-        child: ElevatedButton(
-          onPressed: () => _checkAnswer(c),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(200, 60),
-            textStyle: const TextStyle(fontSize: 24),
-          ),
-          child: Text('$c'),
-        ),
-      )).toList(),
-    );
-  }
+  Widget _intButtons(List<int> choices) => Column(
+        children: choices
+            .map((c) => Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: ElevatedButton(
+                    onPressed: () => _answerInt(c),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(200, 60),
+                      textStyle: const TextStyle(fontSize: 24),
+                    ),
+                    child: Text('$c'),
+                  ),
+                ))
+            .toList(),
+      );
 
-  Widget _stringChoiceButtons(List<String> choices) {
-    return Column(
-      children: choices.map((c) => Padding(
-        padding: const EdgeInsets.all(8),
-        child: ElevatedButton(
-          onPressed: () => _checkStringAnswer(c),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(200, 60),
-            textStyle: const TextStyle(fontSize: 22),
-          ),
-          child: Text(c),
-        ),
-      )).toList(),
-    );
-  }
-
-  // ── 時計の文字盤 ──────────────────────────────────────────────
-  Widget _clockFace(int hour, int minute) {
-    return CustomPaint(
-      size: const Size(180, 180),
-      painter: _ClockPainter(hour: hour, minute: minute),
-    );
-  }
-
-  // ── 図形ウィジェット ──────────────────────────────────────────
-  Widget _shapeWidget(String shapeName) {
-    return CustomPaint(
-      size: const Size(140, 140),
-      painter: _ShapePainter(shapeName: shapeName),
-    );
-  }
+  Widget _strButtons(List<String> choices) => Column(
+        children: choices
+            .map((c) => Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: ElevatedButton(
+                    onPressed: () => _answerString(c),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(200, 60),
+                      textStyle: const TextStyle(fontSize: 22),
+                    ),
+                    child: Text(c),
+                  ),
+                ))
+            .toList(),
+      );
 }
 
-// ── 時計描画 ──────────────────────────────────────────────────────
+// ── 時計ウィジェット ──────────────────────────────────────────────
+class _ClockFace extends StatelessWidget {
+  final int hour, minute;
+  const _ClockFace({required this.hour, required this.minute});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        size: const Size(180, 180),
+        painter: _ClockPainter(hour: hour, minute: minute),
+      );
+}
+
 class _ClockPainter extends CustomPainter {
-  final int hour;
-  final int minute;
+  final int hour, minute;
   const _ClockPainter({required this.hour, required this.minute});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 4;
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2 - 4;
 
-    final bgPaint = Paint()..color = Colors.white;
-    final borderPaint = Paint()
-      ..color = Colors.black87
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    canvas.drawCircle(center, radius, bgPaint);
-    canvas.drawCircle(center, radius, borderPaint);
+    canvas.drawCircle(c, r, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        c,
+        r,
+        Paint()
+          ..color = Colors.black87
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3);
 
-    // 数字
     final tp = TextPainter(textDirection: TextDirection.ltr);
     for (int i = 1; i <= 12; i++) {
-      final angle = (i * 30 - 90) * math.pi / 180;
-      final pos = Offset(
-        center.dx + (radius - 18) * cos(angle),
-        center.dy + (radius - 18) * sin(angle),
-      );
+      final a = (i * 30 - 90) * math.pi / 180;
+      final p = Offset(c.dx + (r - 18) * math.cos(a),
+                       c.dy + (r - 18) * math.sin(a));
       tp.text = TextSpan(
-        text: '$i',
-        style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.bold),
-      );
+          text: '$i',
+          style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black87,
+              fontWeight: FontWeight.bold));
       tp.layout();
-      tp.paint(canvas, pos - Offset(tp.width / 2, tp.height / 2));
+      tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
     }
 
-    // 短針（時）
-    final hAngle = ((hour % 12) + minute / 60.0) * 30 * math.pi / 180 - math.pi / 2;
-    _drawHand(canvas, center, hAngle, radius * 0.5, 5, Colors.black87);
-
-    // 長針（分）
-    final mAngle = minute * 6 * math.pi / 180 - math.pi / 2;
-    _drawHand(canvas, center, mAngle, radius * 0.75, 3, Colors.black54);
-
-    // 中心点
-    canvas.drawCircle(center, 5, Paint()..color = Colors.black87);
+    _hand(canvas, c,
+        ((hour % 12) + minute / 60.0) * 30 * math.pi / 180 - math.pi / 2,
+        r * 0.5, 5, Colors.black87);
+    _hand(canvas, c,
+        minute * 6 * math.pi / 180 - math.pi / 2,
+        r * 0.75, 3, Colors.black54);
+    canvas.drawCircle(c, 5, Paint()..color = Colors.black87);
   }
 
-  void _drawHand(Canvas canvas, Offset center, double angle, double length,
-      double width, Color color) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round;
+  void _hand(Canvas canvas, Offset c, double a, double len, double w, Color col) {
     canvas.drawLine(
-      center,
-      Offset(center.dx + length * cos(angle), center.dy + length * sin(angle)),
-      paint,
-    );
+        c,
+        Offset(c.dx + len * math.cos(a), c.dy + len * math.sin(a)),
+        Paint()
+          ..color = col
+          ..strokeWidth = w
+          ..strokeCap = StrokeCap.round);
   }
-
-  static double cos(double a) => math.cos(a);
-  static double sin(double a) => math.sin(a);
 
   @override
-  bool shouldRepaint(_ClockPainter old) =>
-      old.hour != hour || old.minute != minute;
+  bool shouldRepaint(_ClockPainter o) =>
+      o.hour != hour || o.minute != minute;
 }
 
-// ── 図形描画 ──────────────────────────────────────────────────────
+// ── 図形ウィジェット ──────────────────────────────────────────────
+class _ShapeFigure extends StatelessWidget {
+  final String shapeName;
+  const _ShapeFigure({required this.shapeName});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        size: const Size(140, 140),
+        painter: _ShapePainter(shapeName: shapeName),
+      );
+}
+
 class _ShapePainter extends CustomPainter {
   final String shapeName;
   const _ShapePainter({required this.shapeName});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final fill = Paint()
       ..color = Colors.blue.shade200
       ..style = PaintingStyle.fill;
-    final border = Paint()
+    final line = Paint()
       ..color = Colors.blue.shade700
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
     final cx = size.width / 2;
     final cy = size.height / 2;
-    final r = size.width / 2 - 10;
+    final r  = size.width / 2 - 10;
 
     switch (shapeName) {
       case 'circle':
-        canvas.drawCircle(Offset(cx, cy), r, paint);
-        canvas.drawCircle(Offset(cx, cy), r, border);
+        canvas.drawCircle(Offset(cx, cy), r, fill);
+        canvas.drawCircle(Offset(cx, cy), r, line);
+      case 'square':
+        final rect = Rect.fromCenter(
+            center: Offset(cx, cy), width: r * 1.8, height: r * 1.8);
+        canvas.drawRect(rect, fill);
+        canvas.drawRect(rect, line);
+      case 'rectangle':
+        final rect = Rect.fromCenter(
+            center: Offset(cx, cy), width: r * 2.2, height: r * 1.3);
+        canvas.drawRect(rect, fill);
+        canvas.drawRect(rect, line);
       case 'triangle':
-        final path = Path()
+        final p = Path()
           ..moveTo(cx, cy - r)
           ..lineTo(cx + r, cy + r)
           ..lineTo(cx - r, cy + r)
           ..close();
-        canvas.drawPath(path, paint);
-        canvas.drawPath(path, border);
-      case 'square':
-        final rect = Rect.fromCenter(center: Offset(cx, cy), width: r * 1.8, height: r * 1.8);
-        canvas.drawRect(rect, paint);
-        canvas.drawRect(rect, border);
-      case 'rectangle':
-        final rect = Rect.fromCenter(center: Offset(cx, cy), width: r * 2.2, height: r * 1.3);
-        canvas.drawRect(rect, paint);
-        canvas.drawRect(rect, border);
+        canvas.drawPath(p, fill);
+        canvas.drawPath(p, line);
       default:
-        // pentagon, hexagon など正多角形
         final sides = switch (shapeName) {
           'pentagon' => 5,
           'hexagon'  => 6,
           _          => 4,
         };
-        final path = Path();
+        final p = Path();
         for (int i = 0; i < sides; i++) {
-          final angle = (i * 360 / sides - 90) * math.pi / 180;
-          final x = cx + r * _cos(angle);
-          final y = cy + r * _sin(angle);
-          if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+          final a = (i * 360 / sides - 90) * math.pi / 180;
+          final x = cx + r * math.cos(a);
+          final y = cy + r * math.sin(a);
+          i == 0 ? p.moveTo(x, y) : p.lineTo(x, y);
         }
-        path.close();
-        canvas.drawPath(path, paint);
-        canvas.drawPath(path, border);
+        p.close();
+        canvas.drawPath(p, fill);
+        canvas.drawPath(p, line);
     }
   }
 
-  static double _cos(double a) => math.cos(a);
-  static double _sin(double a) => math.sin(a);
-
   @override
-  bool shouldRepaint(_ShapePainter old) => old.shapeName != shapeName;
+  bool shouldRepaint(_ShapePainter o) => o.shapeName != shapeName;
 }
