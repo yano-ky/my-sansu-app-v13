@@ -5,6 +5,8 @@ import '../models/math_mode.dart';
 import '../models/badge_manager.dart';
 import '../game/game_controller.dart';
 import '../game/question_result.dart';
+import '../widgets/clock_face.dart';
+import '../widgets/shape_figure.dart';
 
 /// ゲーム画面 — 表示のみ担当。ロジックは GameController に委譲。
 class MathGame extends StatefulWidget {
@@ -250,7 +252,7 @@ class _MathGameState extends State<MathGame> {
       case MathMode.clock:
         return Column(children: [
           const SizedBox(height: 10),
-          _ClockFace(hour: q.clockHour, minute: q.clockMinute),
+          ClockFace(hour: q.clockHour, minute: q.clockMinute),
           const SizedBox(height: 16),
           _questionCard(q.clockQuestion, fontSize: 24),
         ]);
@@ -259,7 +261,7 @@ class _MathGameState extends State<MathGame> {
       case MathMode.shape:
         return Column(children: [
           const SizedBox(height: 10),
-          _ShapeFigure(shapeName: q.shapeName),
+          ShapeFigure(shapeName: q.shapeName),
           const SizedBox(height: 16),
           _questionCard(q.shapeQuestion, fontSize: 24),
         ]);
@@ -453,147 +455,4 @@ class _MathGameState extends State<MathGame> {
       )).toList(),
     );
   }
-}
-
-// ── 時計ウィジェット ──────────────────────────────────────────────
-class _ClockFace extends StatelessWidget {
-  final int hour, minute;
-  const _ClockFace({required this.hour, required this.minute});
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-      size: const Size(200, 200),
-      painter: _ClockPainter(hour: hour, minute: minute));
-}
-
-class _ClockPainter extends CustomPainter {
-  final int hour, minute;
-  const _ClockPainter({required this.hour, required this.minute});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    final r = size.width / 2 - 4;
-
-    // 背景
-    canvas.drawCircle(c, r, Paint()..color = Colors.yellow.shade50);
-    canvas.drawCircle(c, r,
-        Paint()
-          ..color = Colors.orange.shade300
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4);
-
-    // 目盛り
-    for (int i = 0; i < 60; i++) {
-      final a = i * 6 * math.pi / 180;
-      final len = i % 5 == 0 ? 10.0 : 5.0;
-      final w   = i % 5 == 0 ? 2.5  : 1.0;
-      canvas.drawLine(
-        Offset(c.dx + (r - len) * math.cos(a), c.dy + (r - len) * math.sin(a)),
-        Offset(c.dx + r        * math.cos(a), c.dy + r        * math.sin(a)),
-        Paint()..color = Colors.orange.shade400..strokeWidth = w,
-      );
-    }
-
-    // 数字
-    final tp = TextPainter(textDirection: TextDirection.ltr);
-    for (int i = 1; i <= 12; i++) {
-      final a = (i * 30 - 90) * math.pi / 180;
-      final p = Offset(c.dx + (r - 22) * math.cos(a),
-                       c.dy + (r - 22) * math.sin(a));
-      tp.text = TextSpan(
-          text: '$i',
-          style: TextStyle(
-              fontSize: 15,
-              color: Colors.brown.shade700,
-              fontWeight: FontWeight.bold));
-      tp.layout();
-      tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
-    }
-
-    // 短針（時）
-    _hand(canvas, c,
-        ((hour % 12) + minute / 60.0) * 30 * math.pi / 180 - math.pi / 2,
-        r * 0.48, 7, Colors.brown.shade700);
-    // 長針（分）
-    _hand(canvas, c,
-        minute * 6 * math.pi / 180 - math.pi / 2,
-        r * 0.70, 4, Colors.brown.shade500);
-    // 中心
-    canvas.drawCircle(c, 7, Paint()..color = Colors.orange.shade400);
-    canvas.drawCircle(c, 3, Paint()..color = Colors.white);
-  }
-
-  void _hand(Canvas canvas, Offset c, double a, double len, double w, Color col) {
-    canvas.drawLine(c,
-        Offset(c.dx + len * math.cos(a), c.dy + len * math.sin(a)),
-        Paint()..color = col..strokeWidth = w..strokeCap = StrokeCap.round);
-  }
-
-  @override
-  bool shouldRepaint(_ClockPainter o) => o.hour != hour || o.minute != minute;
-}
-
-// ── 図形ウィジェット ──────────────────────────────────────────────
-class _ShapeFigure extends StatelessWidget {
-  final String shapeName;
-  const _ShapeFigure({required this.shapeName});
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-      size: const Size(160, 160),
-      painter: _ShapePainter(shapeName: shapeName));
-}
-
-class _ShapePainter extends CustomPainter {
-  final String shapeName;
-  const _ShapePainter({required this.shapeName});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final fill = Paint()..color = Colors.lightBlue.shade200..style = PaintingStyle.fill;
-    final line = Paint()
-      ..color = Colors.blue.shade600
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5;
-
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final r  = size.width / 2 - 12;
-
-    switch (shapeName) {
-      case 'circle':
-        canvas.drawCircle(Offset(cx, cy), r, fill);
-        canvas.drawCircle(Offset(cx, cy), r, line);
-      case 'square':
-        final rect = Rect.fromCenter(center: Offset(cx, cy), width: r * 1.8, height: r * 1.8);
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), fill);
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), line);
-      case 'rectangle':
-        final rect = Rect.fromCenter(center: Offset(cx, cy), width: r * 2.1, height: r * 1.2);
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), fill);
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), line);
-      case 'triangle':
-        final p = Path()
-          ..moveTo(cx, cy - r)
-          ..lineTo(cx + r, cy + r * 0.8)
-          ..lineTo(cx - r, cy + r * 0.8)
-          ..close();
-        canvas.drawPath(p, fill);
-        canvas.drawPath(p, line);
-      default:
-        final sides = switch (shapeName) { 'pentagon' => 5, 'hexagon' => 6, _ => 4 };
-        final p = Path();
-        for (int i = 0; i < sides; i++) {
-          final a = (i * 360 / sides - 90) * math.pi / 180;
-          final x = cx + r * math.cos(a);
-          final y = cy + r * math.sin(a);
-          i == 0 ? p.moveTo(x, y) : p.lineTo(x, y);
-        }
-        p.close();
-        canvas.drawPath(p, fill);
-        canvas.drawPath(p, line);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ShapePainter o) => o.shapeName != shapeName;
 }
