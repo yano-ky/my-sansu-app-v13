@@ -294,6 +294,10 @@ class _MathGameState extends State<MathGame> {
             : '${q.tensBlocks * 10 + q.tensOnes} は\n10のまとまりが なんこ？';
         return _questionCard(txt, fontSize: 28);
 
+      // 挑戦状
+      case MathMode.challenge:
+        return _buildChallengeCard(q);
+
       // 通常・文章問題
       default:
         if (q.story.isNotEmpty) {
@@ -317,6 +321,47 @@ class _MathGameState extends State<MathGame> {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, height: 1.4)),
           ),
+        ),
+      ),
+    );
+  }
+
+  // 挑戦状カード
+  Widget _buildChallengeCard(QuestionResult q) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Card(
+        elevation: 4,
+        color: Colors.deepOrange.shade50,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            if (q.challengeFrom.isNotEmpty)
+              Text('📝 ${q.challengeFrom} からの ちょうせん！',
+                  style: TextStyle(fontSize: 13, color: Colors.deepOrange.shade400,
+                      fontWeight: FontWeight.bold)),
+            if (q.challengeMessage.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.deepOrange.shade200),
+                ),
+                child: Text(q.challengeMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14, height: 1.5)),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text(q.challengeQuestion,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 26, fontWeight: FontWeight.bold, height: 1.4)),
+          ]),
         ),
       ),
     );

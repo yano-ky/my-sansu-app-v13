@@ -61,6 +61,11 @@ class QuestionResult {
   final List<String> shapeChoices;
   final String shapeAnswer;
 
+  // ── 挑戦状 ──
+  final String challengeQuestion; // 問題文
+  final String challengeFrom;     // 差出人
+  final String challengeMessage;  // ひとことメッセージ
+
   const QuestionResult({
     this.n1 = 0,
     this.n2 = 0,
@@ -99,5 +104,8 @@ class QuestionResult {
     this.shapeQuestion = '',
     this.shapeChoices = const [],
     this.shapeAnswer = '',
+    this.challengeQuestion = '',
+    this.challengeFrom = '',
+    this.challengeMessage = '',
   });
 }
