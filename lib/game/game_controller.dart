@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/math_mode.dart';
 import '../models/managers.dart';
@@ -20,6 +22,10 @@ class GameController extends ChangeNotifier {
   final int pLv;
   final int fillBothLv;
 
+  List<dynamic> wrongList = [];
+  List<Map<String, dynamic>> challengeList = [];
+  int _challengeIdx = 0;
+
   GameController({
     required this.mode,
     this.maxNum = 10,
@@ -29,7 +35,35 @@ class GameController extends ChangeNotifier {
     this.pLv = 1,
     this.fillBothLv = 0,
   }) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    if (mode == MathMode.wrong) {
+      final prefs = await _getPrefs();
+      try {
+        final s = prefs.getString('wrongList');
+        if (s != null) wrongList = json.decode(s);
+      } catch (_) {}
+      if (wrongList.isEmpty) {
+        phase = GamePhase.finished;
+        notifyListeners();
+        return;
+      }
+    } else if (mode == MathMode.challenge) {
+      challengeList = await ChallengeManager.loadAll();
+      if (challengeList.isEmpty) {
+        phase = GamePhase.finished;
+        notifyListeners();
+        return;
+      }
+    }
     _next();
+    notifyListeners();
+  }
+
+  Future<dynamic> _getPrefs() async {
+    return await SharedPreferences.getInstance();
   }
 
   // ── 状態 ────────────────────────────────────────────────────────
@@ -90,6 +124,7 @@ class GameController extends ChangeNotifier {
     correct = 0;
     total   = 0;
     streak  = 0;
+    _challengeIdx = 0;
     _missed.clear();
     _review.clear();
     lastNewBadges = [];
@@ -140,12 +175,24 @@ class GameController extends ChangeNotifier {
       question = null;
       return;
     }
+    // challengeモードはインデックス管理
+    if (mode == MathMode.challenge) {
+      if (_challengeIdx >= challengeList.length) {
+        phase = GamePhase.finished;
+        question = null;
+        return;
+      }
+    }
     question = QuestionFactory.generate(
       mode: mode,
       maxNum: maxNum,
       pLv: pLv,
       fillBothLv: fillBothLv,
+      wrongList: wrongList,
+      challengeList: challengeList,
+      challengeIdx: _challengeIdx,
     );
+    if (mode == MathMode.challenge) _challengeIdx++;
   }
 
   /// モードごとの詳細情報をまとめる（履歴表示用）
